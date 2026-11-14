@@ -1,0 +1,2899 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<link rel="icon" href="data:," />
+<title>FunPrint Studio — Editor térmico (C9, 58 mm, 80 mm y más)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#0f1113; --panel:#16181c; --panel-2:#1c1f24; --panel-3:#22262d;
+  --line:#2b3038; --line-soft:#23272e;
+  --text:#eef1f4; --muted:#9aa4b0; --faint:#6b7480;
+  --accent:#ff6a2b; --accent-soft:rgba(255,106,43,.14); --accent-2:#ffb25e;
+  --ok:#43d68a; --warn:#ffc24d; --danger:#ff5d5d;
+  --paper:#f8f6f0; --paper-line:#ddd8cc;
+  --radius:10px;
+  --font:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#2e333b;border-radius:6px;border:2px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+svg.ic{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- Top bar ---------- */
+.topbar{height:58px;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line);position:relative;z-index:40}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand-mark{width:32px;height:32px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:#14100c;flex:none}
+.brand-mark svg{width:19px;height:19px;stroke-width:2}
+.brand-name{font-weight:700;letter-spacing:.01em;white-space:nowrap}
+.brand-sub{font-size:11px;color:var(--muted);white-space:nowrap}
+.proj-name{background:transparent;border:1px solid transparent;color:var(--text);font:inherit;font-weight:600;padding:5px 8px;border-radius:7px;width:150px}
+.proj-name:hover{border-color:var(--line)}
+.proj-name:focus{outline:none;border-color:var(--accent);background:var(--panel-2)}
+.tb-sep{width:1px;height:26px;background:var(--line);flex:none}
+.tb-group{display:flex;align-items:center;gap:6px}
+.tb-spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--panel-3);border:1px solid var(--line);color:var(--text);padding:7px 11px;border-radius:8px;font-size:13px;font-weight:500;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn:hover{background:#2a2f37;border-color:#3a4049}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#171310;font-weight:700}
+.btn.primary:hover{background:#ff7c40}
+.btn.icon-only{padding:7px}
+.btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-2)}
+.seg{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+.seg button{background:transparent;border:0;color:var(--muted);padding:6px 12px;border-radius:6px;font-size:12.5px;font-weight:600;display:inline-flex;gap:6px;align-items:center}
+.seg button.on{background:var(--accent);color:#171310}
+.seg button:not(.on):hover{color:var(--text)}
+
+/* export menu */
+.menu-wrap{position:relative}
+.menu{position:absolute;right:0;top:calc(100% + 8px);background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:6px;min-width:250px;box-shadow:0 18px 44px rgba(0,0,0,.5);display:none;z-index:80}
+.menu.open{display:block}
+.menu button{display:flex;width:100%;gap:9px;align-items:flex-start;background:transparent;border:0;color:var(--text);text-align:left;padding:9px 10px;border-radius:8px;font-size:13px}
+.menu button:hover{background:var(--panel-3)}
+.menu small{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
+.menu hr{border:0;border-top:1px solid var(--line-soft);margin:5px 4px}
+
+/* ---------- Workspace layout ---------- */
+.workspace{display:grid;grid-template-columns:268px minmax(0,1fr) 312px;height:calc(100dvh - 58px)}
+aside{background:var(--panel);overflow-y:auto;overscroll-behavior:contain}
+aside.left{border-right:1px solid var(--line);display:flex;flex-direction:column}
+aside.right{border-left:1px solid var(--line)}
+main.center{display:flex;flex-direction:column;min-width:0;background:
+  radial-gradient(circle at 1px 1px, #23262b 1px, transparent 0) 0 0/22px 22px, #101214}
+
+/* left tabs */
+.tabs{display:flex;gap:2px;padding:10px 10px 0;border-bottom:1px solid var(--line-soft)}
+.tabs button{flex:1;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);font-size:12px;font-weight:600;padding:8px 2px 10px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.tabs button.on{color:var(--accent-2);border-bottom-color:var(--accent)}
+.tabpage{display:none;padding:14px;flex-direction:column;gap:14px}
+.tabpage.on{display:flex}
+.dropzone{border:1.5px dashed #3a4049;border-radius:12px;padding:16px 12px;text-align:center;color:var(--muted);font-size:12.5px;transition:border-color .15s,background .15s}
+.dropzone.drag{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
+.dropzone b{color:var(--text);display:block;font-size:13px;margin-bottom:3px}
+.photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.photo-thumb{position:relative;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#000;cursor:pointer;padding:0;text-align:left}
+.photo-thumb img{width:100%;height:74px;object-fit:cover;display:block}
+.photo-thumb span{display:block;font-size:10.5px;color:var(--muted);padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photo-thumb:hover{border-color:var(--accent)}
+.photo-thumb .add-badge{position:absolute;top:5px;right:5px;background:var(--accent);color:#171310;border-radius:6px;font-size:10px;font-weight:700;padding:2px 6px}
+.empty-note{color:var(--faint);font-size:12.5px;line-height:1.55;border:1px solid var(--line-soft);border-radius:10px;padding:12px}
+.elem-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.elem-btn{display:flex;flex-direction:column;align-items:center;gap:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:14px 6px;font-size:12.5px;font-weight:500}
+.elem-btn:hover{border-color:var(--accent)}
+.template-btn{display:flex;gap:11px;width:100%;text-align:left;background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:11px 12px;color:var(--text);align-items:center}
+.template-btn:hover{border-color:var(--accent)}
+.template-btn b{display:block;font-size:13px}
+.template-btn small{color:var(--muted);font-size:11.5px;line-height:1.4;display:block;margin-top:2px}
+.tp-prev{flex:none;width:34px;display:flex;flex-direction:column;gap:2.5px}
+.tp-prev i{display:block;background:#cfd4da;border-radius:1.5px}
+.layer-row{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--line-soft);border-radius:9px;background:var(--panel-2);cursor:pointer}
+.layer-row.sel{border-color:var(--accent);background:var(--accent-soft)}
+.layer-row .nm{flex:1;min-width:0;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.layer-row button{background:transparent;border:0;color:var(--muted);padding:3px;border-radius:5px;display:grid;place-items:center}
+.layer-row button:hover{color:var(--text);background:var(--panel-3)}
+.layer-row button svg{width:14px;height:14px}
+.hist-row{font-size:12px;color:var(--muted);padding:7px 9px;border-left:2px solid var(--line);display:flex;justify-content:space-between;gap:8px}
+.hist-row.cur{color:var(--text);border-left-color:var(--accent)}
+.hist-row time{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+
+/* center */
+.center-tools{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap;background:rgba(22,24,28,.72)}
+.center-tools .lbl{font-size:11px;color:var(--faint);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.zoom-val{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:44px;text-align:center}
+.canvas-scroll{flex:1;overflow:auto;padding:34px 20px 46px;display:flex;justify-content:center;align-items:flex-start}
+.roll-wrap{position:relative;flex:none}
+.roll{position:absolute;top:-14px;bottom:-22px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,#26282c,#2e3034 12%,#2e3034 88%,#26282c);border:1px solid #36393f;border-radius:4px}
+.roll span{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10.5px;color:var(--faint);white-space:nowrap}
+.paper{position:relative;background:var(--paper);border-radius:2px;box-shadow:0 24px 60px rgba(0,0,0,.55),0 4px 14px rgba(0,0,0,.4);margin:0 auto}
+.paper .margin-guide{position:absolute;border:1px dashed rgba(255,106,43,.55);pointer-events:none;z-index:3}
+.paper .printable-guide{position:absolute;top:0;bottom:0;border-left:1px dashed rgba(30,110,255,.5);border-right:1px dashed rgba(30,110,255,.5);pointer-events:none;z-index:3}
+.paper-empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#8a8578;padding:20px;z-index:1}
+.paper-empty b{color:#55524a;display:block;font-size:15px;margin-bottom:6px}
+.paper-empty p{margin:0;font-size:12.5px;line-height:1.6;max-width:300px}
+#thermalCanvas{position:absolute;inset:0;width:100%;height:100%;display:none;z-index:2}
+.paper.thermal #thermalCanvas{display:block}
+.paper.thermal .item{display:none}
+.paper.pixelated #thermalCanvas{image-rendering:pixelated}
+.item{position:absolute;z-index:4;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.item:active{cursor:grabbing}
+.item canvas,.item .shape-el,.item .text-el{display:block;width:100%;height:100%}
+.item .text-el{color:#111;overflow:hidden;line-height:1.25;padding:2px;word-break:break-word}
+.item.sel{outline:2px solid var(--accent);outline-offset:1px}
+.item.locked{cursor:default}
+.handle{position:absolute;width:13px;height:13px;background:#fff;border:2px solid var(--accent);border-radius:3px;z-index:6;display:none}
+.item.sel .handle{display:block}
+.handle.se{right:-8px;bottom:-8px;cursor:nwse-resize}
+.handle.rot{left:50%;top:-26px;transform:translateX(-50%);border-radius:50%;cursor:grab;width:12px;height:12px}
+.handle.rot::after{content:"";position:absolute;left:50%;top:11px;width:2px;height:13px;background:var(--accent);transform:translateX(-50%)}
+.statsbar{border-top:1px solid var(--line-soft);background:var(--panel);padding:9px 14px;display:flex;gap:18px;flex-wrap:wrap;align-items:center}
+.stat{display:flex;flex-direction:column;gap:1px}
+.stat b{font-family:var(--mono);font-size:13px;font-weight:600}
+.stat span{font-size:10px;color:var(--faint);letter-spacing:.05em;text-transform:uppercase;font-weight:600}
+.stat.warn b{color:var(--warn)}
+
+/* right panel */
+.rp-sec{padding:15px 15px 17px;border-bottom:1px solid var(--line-soft)}
+.rp-sec h3{margin:0 0 4px;font-size:13px;display:flex;align-items:center;gap:8px}
+.rp-sec h3 svg{color:var(--accent-2)}
+.rp-sec .sub{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 10px}
+.rp-head{display:flex;align-items:center;gap:9px;padding:14px 15px;border-bottom:1px solid var(--line-soft);background:var(--panel-2)}
+.rp-head .thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;background:#000;flex:none}
+.rp-head .nm{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-head .meta{font-size:11.5px;color:var(--muted);font-family:var(--mono)}
+.field{margin-bottom:11px}
+.field label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:500}
+.field label output{font-family:var(--mono);color:var(--text);font-size:11.5px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:4px;background:#333842;border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid var(--accent);margin-top:-5.5px;cursor:pointer}
+input[type=range]::-moz-range-track{height:4px;background:#333842;border-radius:2px}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.num-in,.sel-in,.txt-in{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:7px 9px;font-size:13px}
+.num-in{font-family:var(--mono)}
+.num-in:focus,.sel-in:focus,.txt-in:focus{outline:none;border-color:var(--accent)}
+textarea.txt-in{resize:vertical;min-height:58px;line-height:1.4}
+.field>span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:500}
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;font-size:12.5px}
+.switch{position:relative;width:38px;height:21px;flex:none;display:block}
+.switch input{-webkit-appearance:none;appearance:none;width:38px;height:21px;position:relative;display:block;margin:0;cursor:pointer;background:#333842;border-radius:20px;transition:background .15s;border:0}
+.switch input::after{content:"";position:absolute;width:15px;height:15px;border-radius:50%;background:#c9ced6;top:3px;left:3px;transition:transform .15s,background .15s}
+.switch input:checked{background:var(--accent)}
+.switch input:checked::after{transform:translateX(17px);background:#fff}
+.switch i{display:none}
+.btn-row{display:flex;gap:7px;flex-wrap:wrap}
+.btn.sm{padding:6px 9px;font-size:12px}
+.btn.danger:hover{border-color:var(--danger);color:#ff8a8a}
+.chan-legend{display:flex;gap:6px;font-size:10.5px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;vertical-align:-1px;margin-right:3px}
+.profile-note{font-size:11.5px;color:var(--muted);background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:9px 10px;line-height:1.5}
+.histo-wrap{background:#0b0c0e;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:10px}
+.histo-wrap canvas{width:100%;height:84px;display:block}
+.histo-meta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:6px}
+.curve-wrap{background:#0b0c0e;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:10px}
+.curve-wrap canvas{width:100%;height:190px;display:block;touch-action:none;cursor:crosshair;border-radius:6px;background:#101216}
+.curve-hint{font-size:11px;color:var(--muted);line-height:1.45;margin:6px 0 0}
+.gen-box{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel-2);display:flex;flex-direction:column;gap:9px}
+.gen-box h4{margin:0;font-size:13px}
+.gen-box p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.5}
+.gen-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gen-grid label{font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-weight:500}
+.checker{background-image:linear-gradient(45deg,#d8d8d8 25%,transparent 25%),linear-gradient(-45deg,#d8d8d8 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#d8d8d8 75%),linear-gradient(-45deg,transparent 75%,#d8d8d8 75%);background-size:12px 12px;background-position:0 0,0 6px,6px -6px,-6px 0;background-color:#fff}
+.auto-card{border:1px solid var(--accent);background:var(--accent-soft);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.auto-card b{font-size:13px}
+.auto-card p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.5}
+.batch-box,.lib-box{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel-2);display:flex;flex-direction:column;gap:9px}
+.batch-box h4,.lib-box h4{margin:0;font-size:13px}
+.batch-box p,.lib-box p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.5}
+.batch-box label,.lib-box label{font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-weight:500}
+.lib-list{display:flex;flex-direction:column;gap:9px}
+.lib-card{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--panel)}
+.lib-card img{width:100%;height:92px;object-fit:cover;object-position:top;background:#fff;display:block}
+.lib-card .lib-body{padding:9px 10px;display:flex;flex-direction:column;gap:6px}
+.lib-card b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib-card small{color:var(--muted);font-size:11px;line-height:1.4}
+.lib-actions{display:flex;gap:5px;flex-wrap:wrap}
+.lib-actions .btn{padding:5px 7px;font-size:11px}
+
+/* ---------- Bluetooth experimental (Fase 4) ---------- */
+.exp-badge{display:inline-block;background:rgba(255,194,77,.16);border:1px solid var(--warn);color:var(--warn);font-size:10px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:20px;vertical-align:2px;margin-left:7px}
+.btn .exp-badge{margin-left:2px;vertical-align:0}
+.bt-modal{max-width:640px}
+.bt-modal h2{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bt-steps{margin:0 0 14px;padding-left:19px;color:var(--muted);font-size:12.5px;line-height:1.6}
+.bt-steps b{color:var(--text)}
+.bt-warnbox{border:1px solid var(--danger);background:rgba(255,93,93,.08);border-radius:10px;padding:11px 12px;font-size:12.5px;line-height:1.55;margin-bottom:14px;display:none}
+.bt-warnbox.show{display:block}
+.bt-note{font-size:12px;color:var(--muted);line-height:1.55;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:9px 11px;margin:0 0 12px}
+.bt-status{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5;margin-bottom:12px;background:var(--panel-2)}
+.bt-status .dotst{width:10px;height:10px;border-radius:50%;background:var(--faint);flex:none;margin-top:4px}
+.bt-status.working .dotst{background:var(--warn)}
+.bt-status.ok .dotst{background:var(--ok)}
+.bt-status.err .dotst{background:var(--danger)}
+.bt-status.err{border-color:var(--danger)}
+.bt-progress{height:8px;background:var(--panel-3);border-radius:5px;overflow:hidden;margin-bottom:12px;display:none}
+.bt-progress.show{display:block}
+.bt-progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.bt-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.bt-sec-t{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+.gatt-svc{font-family:var(--mono);font-size:11.5px;color:var(--accent-2);margin:10px 0 5px;word-break:break-all}
+.gatt-chr{display:flex;gap:8px;align-items:center;border:1px solid var(--line-soft);border-radius:9px;padding:8px 9px;margin-bottom:6px;background:var(--panel-2);flex-wrap:wrap}
+.gatt-chr.sel{border-color:var(--accent);background:var(--accent-soft)}
+.gatt-chr .uuid{font-family:var(--mono);font-size:11.5px;word-break:break-all;flex:1;min-width:180px}
+.gatt-chr .props{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.gatt-empty{font-size:12.5px;color:var(--faint);border:1px dashed var(--line);border-radius:9px;padding:11px}
+.bt-manual{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
+.bt-manual label{font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-weight:500}
+.bt-diag{width:100%;min-height:130px;background:#0b0c0e;border:1px solid var(--line);border-radius:10px;color:#c8d2dc;font-family:var(--mono);font-size:11px;line-height:1.55;padding:10px;resize:vertical}
+.bt-env{border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:14px;background:var(--panel-2)}
+.bt-env-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.bt-env-list li{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.bt-env-list li b{color:var(--text);font-weight:600}
+.bt-env-list .ed{width:9px;height:9px;border-radius:50%;flex:none;margin-top:5px;background:var(--faint)}
+.bt-env-list li.ok .ed{background:var(--ok)}
+.bt-env-list li.warn .ed{background:var(--warn)}
+.bt-env-list li.err .ed{background:var(--danger)}
+.bt-env-advice{white-space:pre-line;margin-top:10px}
+@media (max-width:820px){.bt-manual{grid-template-columns:1fr}}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(6,7,8,.72);display:none;place-items:center;z-index:100;padding:16px}
+.overlay.open{display:grid}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:860px;width:100%;max-height:92dvh;overflow-y:auto;padding:22px}
+.modal h2{margin:0 0 6px;font-size:19px}
+.modal .sub{color:var(--muted);font-size:13px;line-height:1.55;margin:0 0 16px}
+.cmp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.cmp-cell{background:var(--panel-2);border:2px solid var(--line);border-radius:12px;padding:8px;cursor:pointer;text-align:left;color:var(--text)}
+.cmp-cell:hover{border-color:#454c57}
+.cmp-cell.on{border-color:var(--accent)}
+.cmp-cell canvas{width:100%;height:auto;display:block;background:#fff;border-radius:6px;image-rendering:pixelated}
+.cmp-cell b{display:block;font-size:12.5px;margin-top:8px}
+.cmp-cell small{color:var(--muted);font-size:11px;line-height:1.4;display:block}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.confirm-modal{max-width:420px}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,16px);background:#23262c;border:1px solid var(--line);color:var(--text);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:200;box-shadow:0 12px 30px rgba(0,0,0,.45);max-width:92vw;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.hidden-input{display:none}
+
+@media (max-width:1180px){.workspace{grid-template-columns:230px minmax(0,1fr) 272px}.brand-sub{display:none}.proj-name{width:110px}}
+@media (max-width:820px){
+  body{overflow:auto}
+  .topbar{flex-wrap:wrap;height:auto;padding:9px 10px;row-gap:8px}
+  .brand{flex:1 1 100%;min-width:0}
+  .proj-name{flex:1;width:auto;min-width:70px}
+  .tb-group{flex-wrap:wrap;min-width:0}
+  .tb-sep{display:none}
+  .seg{flex-wrap:wrap}
+  .btn{padding:7px 9px;font-size:12.5px}
+  .workspace{display:flex;flex-direction:column;height:auto}
+  main.center{order:-1;min-height:78dvh}
+  .canvas-scroll{max-height:62dvh}
+  aside.left,aside.right{border:0;border-top:1px solid var(--line);overflow:visible}
+  .photo-grid{grid-template-columns:repeat(3,1fr)}
+  .cmp-grid{grid-template-columns:1fr 1fr}
+  .seg button{padding:6px 8px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg></div>
+    <div>
+      <div class="brand-name">FunPrint Studio</div>
+      <div class="brand-sub" id="brandSub">Microfast C9 · 57 mm</div>
+    </div>
+    <input class="proj-name" id="projName" value="Collar sin título" aria-label="Nombre del proyecto" />
+  </div>
+
+  <div class="tb-sep"></div>
+  <div class="tb-group">
+    <button class="btn icon-only" id="undoBtn" title="Deshacer (Ctrl+Z)" aria-label="Deshacer"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button class="btn icon-only" id="redoBtn" title="Rehacer (Ctrl+Y)" aria-label="Rehacer"><svg class="ic" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+  </div>
+
+  <div class="tb-sep"></div>
+  <div class="tb-group">
+    <button class="btn" id="importBtn2"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>Importar fotos</button>
+    <div class="seg" role="group" aria-label="Modo de vista">
+      <button data-view="design" class="on">Diseño</button>
+      <button data-view="mono">Mono</button>
+      <button data-view="thermal">Térmica</button>
+    </div>
+    <button class="btn" id="compareBtn"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg>Comparar tramados</button>
+  </div>
+
+  <div class="tb-spacer"></div>
+  <div class="tb-group">
+    <button class="btn" id="newBtn">Nuevo</button>
+    <button class="btn" id="openBtn">Abrir</button>
+    <button class="btn" id="saveBtn"><svg class="ic" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Guardar</button>
+    <button class="btn" id="btOpenBtn" title="Impresión directa por Bluetooth (experimental)"><svg class="ic" viewBox="0 0 24 24"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>Bluetooth<span class="exp-badge">EXP</span></button>
+    <div class="menu-wrap">
+      <button class="btn primary" id="exportBtn">Exportar PNG<svg class="ic" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="menu" id="exportMenu">
+        <button data-export="thermal"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span>PNG térmico final<small>Tramado exacto: los píxeles finales de impresión, sin reescalar</small></span></button>
+        <button data-export="mono"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span>PNG monocromo<small>Escala de grises procesada, sin tramado</small></span></button>
+        <button data-export="design"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span>PNG diseño<small>Composición en color, tal como se diseñó</small></span></button>
+        <button data-export="jpg"><svg class="ic" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg><span>JPG térmico<small>Misma imagen térmica, archivo más liviano</small></span></button>
+        <button data-export="pdf-thermal"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span>PDF térmico · medida real<small>Página exacta en mm del collar, para imprimir al 100% sin escalar</small></span></button>
+        <button data-export="pdf-mono"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span>PDF monocromo · medida real<small>Grises procesados en una página del tamaño físico del collar</small></span></button>
+        <hr />
+        <button data-export="fps"><svg class="ic" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/></svg><span>Proyecto .fps<small>Editable: fotos, ajustes y medidas</small></span></button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="workspace">
+  <!-- ================= LEFT ================= -->
+  <aside class="left">
+    <nav class="tabs" id="leftTabs">
+      <button data-tab="fotos" class="on"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>Fotos</button>
+      <button data-tab="elem"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><circle cx="17" cy="17" r="4"/><path d="M14 3h7v7"/></svg>Elementos</button>
+      <button data-tab="plant"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="1"/><rect x="3" y="14" width="9" height="7" rx="1"/><rect x="16" y="14" width="5" height="7" rx="1"/></svg>Plantillas</button>
+      <button data-tab="capas"><svg class="ic" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>Capas</button>
+      <button data-tab="hist"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>Historial</button>
+    </nav>
+
+    <section class="tabpage on" id="tab-fotos">
+      <div class="dropzone" id="dropzone">
+        <b>Arrastrá tus fotografías acá</b>
+        o tocá Importar. Se procesan en tu dispositivo, sin subirlas a ningún servidor.
+      </div>
+      <button class="btn" id="importBtn" style="justify-content:center"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Importar fotografías</button>
+      <div class="photo-grid" id="photoGrid"></div>
+      <div class="empty-note" id="photoEmpty">Todavía no importaste fotos. Cuando lo hagas, aparecen acá: tocá una para agregarla al collar, y editala sin que eso afecte a las demás.</div>
+      <div class="batch-box" id="batchBox">
+        <h4>Procesamiento por lotes · Fase 3</h4>
+        <p>Aplicá los mismos ajustes, conversión monocromática y tramado a muchas fotos a la vez. El tramado es el del Motor térmico (global al collar).</p>
+        <label>Brillo en lote <span id="batchBrightnessVal">0</span><input type="range" id="batchBrightness" min="-100" max="100" value="0" step="1"></label>
+        <label>Contraste en lote <span id="batchContrastVal">0</span><input type="range" id="batchContrast" min="-100" max="100" value="0" step="1"></label>
+        <label>Exposición en lote <span id="batchExposureVal">0</span><input type="range" id="batchExposure" min="-100" max="100" value="0" step="1"></label>
+        <label>Nitidez en lote <span id="batchSharpVal">35</span><input type="range" id="batchSharp" min="0" max="100" value="35" step="1"></label>
+        <label>Conversión monocromática del lote
+          <select class="sel-in" id="batchMono">
+            <option value="keep">No cambiar canales</option>
+            <option value="standard">Estándar (30 / 59 / 11)</option>
+            <option value="retrato">Retrato · más rojo (45 / 40 / 15)</option>
+            <option value="paisaje">Paisaje · más verde/azul (20 / 55 / 25)</option>
+            <option value="detalle">Detalle (25 / 65 / 10)</option>
+          </select>
+        </label>
+        <label>Alcance
+          <select class="sel-in" id="batchScope">
+            <option value="canvas">Fotos ya puestas en el collar</option>
+            <option value="imported">Todas las importadas (quedan listas al agregarlas)</option>
+            <option value="both">Ambas</option>
+          </select>
+        </label>
+        <button class="btn primary" id="batchApplyBtn" style="justify-content:center">Aplicar ajustes al lote</button>
+        <div class="btn-row">
+          <button class="btn sm" id="batchAutoBtn">Mejora automática a todas</button>
+          <button class="btn sm" id="batchBgBtn">Fondo mejorado a todas</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn sm" id="batchAddAllBtn">Armar un collar con todas</button>
+          <button class="btn sm" id="batchSeparateBtn">Exportar PNG térmico por foto</button>
+        </div>
+        <p id="batchHint">Importá varias fotos y aplicá el lote. “Por foto” descarga un PNG térmico separado para cada foto del collar, con el mismo tramado que ves en Vista térmica.</p>
+      </div>
+    </section>
+
+    <section class="tabpage" id="tab-elem">
+      <div class="elem-grid">
+        <button class="elem-btn" data-elem="text"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7V5h16v2M9 20h6M12 5v15"/></svg>Texto</button>
+        <button class="elem-btn" data-elem="rect"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>Rectángulo</button>
+        <button class="elem-btn" data-elem="circle"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Círculo</button>
+        <button class="elem-btn" data-elem="line"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16"/></svg>Línea</button>
+      </div>
+      <div class="empty-note">Los textos sirven para nombres, fechas y dedicatorias en el collar. En la vista térmica se imprimen en blanco y negro puro.</div>
+    </section>
+
+    <section class="tabpage" id="tab-plant">
+      <button class="template-btn" data-template="clasico"><span class="tp-prev"><i style="height:9px"></i><i style="height:9px"></i><i style="height:9px"></i></span><span><b>Clásico</b><small>Fotografías consecutivas a todo el ancho, una debajo de la otra.</small></span></button>
+      <button class="template-btn" data-template="libre"><span class="tp-prev"><i style="height:12px;width:60%"></i><i style="height:9px;width:85%;align-self:flex-end"></i><i style="height:11px;width:70%"></i></span><span><b>Collage libre</b><small>Tamaños variados en dos columnas, con desplazamientos.</small></span></button>
+      <button class="template-btn" data-template="editorial"><span class="tp-prev"><i style="height:13px"></i><i style="height:6px;width:55%"></i><i style="height:10px"></i></span><span><b>Editorial</b><small>Grilla limpia y alineada, con márgenes amplios y ritmo regular.</small></span></button>
+      <button class="template-btn" data-template="vintage"><span class="tp-prev"><i style="height:11px;border-bottom:5px solid #fff"></i><i style="height:11px;border-bottom:5px solid #fff"></i></span><span><b>Vintage</b><small>Marco blanco grueso tipo foto instantánea, apiladas en tira.</small></span></button>
+      <div class="empty-note">Las plantillas solo reordenan las fotos que ya están en el lienzo. Después podés seguir moviendo todo libremente.</div>
+      <div class="gen-box" id="autoGenBox">
+        <h4>Generador automático de collages</h4>
+        <p>Usa tus fotos importadas (en orden) y arma el collar solo, según cantidad y medidas. Reemplaza las fotos actuales del lienzo; textos y formas se conservan.</p>
+        <div class="gen-grid">
+          <label>Cantidad de fotos<input class="num-in" type="number" id="genCount" value="6" min="1" max="60" step="1"></label>
+          <label>Columnas<input class="num-in" type="number" id="genCols" value="0" min="0" max="6" step="1"><span style="font-weight:400">0 = automático</span></label>
+          <label>Ancho por foto (mm)<input class="num-in" type="number" id="genW" value="0" min="0" max="57" step="1"><span style="font-weight:400">0 = llena el collar</span></label>
+          <label>Alto por foto (mm)<input class="num-in" type="number" id="genH" value="0" min="0" max="300" step="1"><span style="font-weight:400">0 = según proporción</span></label>
+          <label>Separación (mm)<input class="num-in" type="number" id="genGap" value="4" min="0" max="20" step="0.5"></label>
+          <label>Disposición<select class="sel-in" id="genLayout"><option value="grid">Grilla regular</option><option value="strips">Tira vertical</option><option value="mosaic">Mosaico variado</option></select></label>
+        </div>
+        <label style="font-size:11.5px;color:var(--muted);display:flex;flex-direction:column;gap:4px;font-weight:500">Recorte al generar<select class="sel-in" id="genFit"><option value="cover">Cubrir el casillero (recorta)</option><option value="contain">Completa sin recortar</option></select></label>
+        <button class="btn primary" id="genBtn" style="justify-content:center">Generar collage automático</button>
+        <p id="genHint">Importá fotos primero: el generador toma las primeras N de tu biblioteca.</p>
+      </div>
+      <div class="lib-box" id="libBox">
+        <h4>Biblioteca de diseños · Fase 3</h4>
+        <p>Guardá collares y plantillas propias para reutilizarlos, duplicarlos y organizarlos por categoría. Abrir recupera fotos y ajustes; “Como plantilla” solo toma posiciones y tamaños.</p>
+        <label>Nombre para guardar<input class="txt-in" type="text" id="libName" placeholder="Ej.: Tira de cumpleaños"></label>
+        <label>Categoría
+          <select class="sel-in" id="libCategory">
+            <option value="Collares">Collares</option>
+            <option value="Plantillas">Plantillas</option>
+            <option value="Tiras">Tiras</option>
+            <option value="Trabajos">Trabajos</option>
+            <option value="Otros">Otros</option>
+          </select>
+        </label>
+        <button class="btn primary" id="libSaveBtn" style="justify-content:center">Guardar diseño actual en la biblioteca</button>
+        <label>Buscar<input class="txt-in" type="text" id="libSearch" placeholder="Buscar por nombre…"></label>
+        <div class="grid2">
+          <label>Filtrar<select class="sel-in" id="libFilter"><option value="">Todas las categorías</option><option value="Collares">Collares</option><option value="Plantillas">Plantillas</option><option value="Tiras">Tiras</option><option value="Trabajos">Trabajos</option><option value="Otros">Otros</option></select></label>
+          <label>Ordenar<select class="sel-in" id="libSort"><option value="recent">Más recientes</option><option value="name">Por nombre</option><option value="size">Por largo del collar</option></select></label>
+        </div>
+        <div class="lib-list" id="libList"></div>
+        <div class="empty-note" id="libEmpty">Todavía no guardaste diseños en esta sesión.</div>
+        <div class="btn-row">
+          <button class="btn sm" id="libExportBtn">Exportar biblioteca (.json)</button>
+          <button class="btn sm" id="libImportBtn">Importar biblioteca</button>
+        </div>
+        <p>La biblioteca vive en esta sesión. Exportala como archivo para conservarla y volver a importarla cuando quieras; cada diseño también se puede bajar como .fps.</p>
+        <input type="file" id="libInput" class="hidden-input" accept=".json,application/json">
+      </div>
+    </section>
+
+    <section class="tabpage" id="tab-capas">
+      <div id="layerList" style="display:flex;flex-direction:column;gap:7px"></div>
+      <div class="empty-note" id="layerEmpty">El lienzo está vacío. Las capas aparecen acá para reordenar, bloquear u ocultar elementos.</div>
+    </section>
+
+    <section class="tabpage" id="tab-hist">
+      <div id="histList"></div>
+    </section>
+  </aside>
+
+  <!-- ================= CENTER ================= -->
+  <main class="center">
+    <div class="center-tools">
+      <span class="lbl">Zoom</span>
+      <button class="btn icon-only sm" id="zoomOut" aria-label="Alejar"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+      <span class="zoom-val" id="zoomVal">100%</span>
+      <button class="btn icon-only sm" id="zoomIn" aria-label="Acercar"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="btn sm" id="zoomFit">Ajustar</button>
+      <button class="btn sm" id="zoomPixels">Píxeles 1:1</button>
+      <div class="tb-sep"></div>
+      <button class="btn sm" id="guidesBtn">Guías</button>
+      <span style="font-size:12px;color:var(--muted)" id="viewHint">Vista de diseño: composición en color.</span>
+    </div>
+    <div class="canvas-scroll" id="canvasScroll">
+      <div class="roll-wrap" id="rollWrap">
+        <div class="roll" id="rollEl"><span id="rollLbl">Rollo 57 mm</span></div>
+        <div class="paper" id="paper">
+          <div class="printable-guide" id="printGuide"></div>
+          <div class="margin-guide" id="marginGuide"></div>
+          <canvas id="thermalCanvas" width="384" height="960"></canvas>
+          <div class="paper-empty" id="paperEmpty">
+            <div><b>Tu collar empieza acá</b><p>Importá fotografías y tocalas para agregarlas. Arrastrá para mover, tirá de la esquina para redimensionar y del punto superior para rotar.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="statsbar" id="statsBar"></div>
+  </main>
+
+  <!-- ================= RIGHT ================= -->
+  <aside class="right" id="rightPanel"></aside>
+</div>
+
+<!-- comparator modal -->
+<div class="overlay" id="cmpOverlay">
+  <div class="modal">
+    <h2>Comparar tramados</h2>
+    <p class="sub" id="cmpSub">La foto seleccionada, procesada con cada método usando los parámetros térmicos actuales. Tocá un resultado para usar ese método en todo el collar.</p>
+    <div class="cmp-grid" id="cmpGrid"></div>
+    <div class="modal-foot"><button class="btn" id="cmpClose">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- confirm modal -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal confirm-modal">
+    <h2 id="confirmTitle">¿Empezar un proyecto nuevo?</h2>
+    <p class="sub" id="confirmText">Se descarta el collar actual. Si querés conservarlo, guardalo primero como proyecto .fps o exportalo.</p>
+    <div class="modal-foot">
+      <button class="btn" id="confirmCancel">Cancelar</button>
+      <button class="btn primary" id="confirmOk">Sí, nuevo proyecto</button>
+    </div>
+  </div>
+</div>
+
+<!-- bluetooth printing modal (EXPERIMENTAL) -->
+<div class="overlay" id="btOverlay">
+  <div class="modal bt-modal">
+    <h2>Impresión directa por Bluetooth<span class="exp-badge">EXPERIMENTAL</span></h2>
+    <p class="sub">Alternativa experimental a la exportación para Fun Print: manda el mismo collar térmico por Bluetooth (Web Bluetooth + ESC/POS). <b>El flujo de siempre no cambia:</b> si esto no funciona con tu impresora, exportás el PNG térmico y lo imprimís desde Fun Print.</p>
+    <div class="bt-warnbox" id="btUnsupported"></div>
+    <div class="bt-env" id="btEnv">
+      <div class="bt-sec-t" style="margin-top:0">Chequeo del entorno</div>
+      <ul class="bt-env-list" id="btEnvList"><li><span class="ed"></span><span>Consultando el entorno del navegador…</span></li></ul>
+      <p class="bt-note bt-env-advice" id="btEnvAdvice" style="display:none"></p>
+    </div>
+    <ol class="bt-steps">
+      <li><b>Cerrá Fun Print</b> y cualquier otra app que use la impresora: si está ocupada por otra app, la conexión falla.</li>
+      <li>La impresora tiene que estar <b>prendida, con papel y cerca</b> del teléfono o la computadora.</li>
+      <li>Solo funciona en navegadores con Web Bluetooth: <b>Chrome o Edge</b>, idealmente Chrome en Android. En iPhone/iPad no está disponible.</li>
+    </ol>
+    <p class="bt-note">No está confirmado que la Microfast C9 acepte comandos ESC/POS por Bluetooth: algunas mini impresoras solo hablan con su app oficial. Si la C9 no expone un servicio BLE escribible compatible, el diagnóstico de abajo lo va a decir claramente, sin fallar en silencio.</p>
+    <div class="bt-status" id="btStatus"><span class="dotst"></span><span id="btStatusText">Sin conexión. Tocá «Conectar impresora Bluetooth» para empezar.</span></div>
+    <div class="bt-progress" id="btProgress"><i id="btBar"></i></div>
+    <div class="bt-actions">
+      <button class="btn primary" id="btConnectBtn">Conectar impresora Bluetooth</button>
+      <button class="btn" id="btDisconnectBtn" disabled>Desconectar</button>
+    </div>
+    <div class="bt-actions">
+      <button class="btn" id="btTestBtn" disabled>Prueba pequeña</button>
+      <button class="btn primary" id="btPrintBtn" disabled>Imprimir collar por Bluetooth</button>
+    </div>
+    <div class="bt-sec-t">Servicios y características GATT</div>
+    <div id="btGattList"><div class="gatt-empty">Todavía no hay ninguna impresora conectada. Al conectar, acá se listan los servicios y características que expone, con sus propiedades, para elegir la de escritura.</div></div>
+    <div class="bt-sec-t">UUID manuales (opcional)</div>
+    <p class="bt-note" style="margin-bottom:9px">Si la detección automática no coincide con tu impresora, pegá acá el UUID de servicio y de característica de escritura. Podés pegarlos antes de conectar (se incluyen en la búsqueda) o con la impresora ya conectada y tocar «Usar estos UUID».</p>
+    <div class="bt-manual">
+      <label>UUID de servicio<input class="txt-in" type="text" id="btSvcUuid" placeholder="Ej.: 0000ffe0-0000-1000-8000-00805f9b34fb o ffe0" spellcheck="false"></label>
+      <label>UUID de característica<input class="txt-in" type="text" id="btChrUuid" placeholder="Ej.: 0000ffe1-0000-1000-8000-00805f9b34fb o ffe1" spellcheck="false"></label>
+    </div>
+    <div class="bt-actions">
+      <button class="btn sm" id="btManualBtn">Usar estos UUID</button>
+    </div>
+    <div class="bt-sec-t">Diagnóstico · último intento</div>
+    <textarea class="bt-diag" id="btDiag" readonly placeholder="Acá queda registrado el último intento: dispositivo, UUID usados, bytes enviados y resultado. Copialo y pegalo para reportar cualquier problema."></textarea>
+    <div class="bt-actions" style="margin-top:9px">
+      <button class="btn sm" id="btCopyBtn">Copiar diagnóstico</button>
+    </div>
+    <div class="modal-foot"><button class="btn" id="btClose">Cerrar</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<input type="file" id="fileInput" class="hidden-input" accept="image/*" multiple />
+<input type="file" id="projectInput" class="hidden-input" accept=".fps,.json,application/json" />
+
+<script>
+"use strict";
+/* ============================================================
+   FunPrint Studio — Fase 2
+   Todo el procesamiento ocurre localmente con Canvas API.
+   Unidades internas: milímetros. Salida: píxeles a DPI elegido.
+   ============================================================ */
+var PXMM = 8;               /* px por mm a 203 dpi (8 dots/mm) */
+var uid = 1;
+function $(s, r){ return (r||document).querySelector(s); }
+function $all(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
+function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
+function mm(v){ return Math.round(v * 10) / 10; }
+function toast(msg){
+  var t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._h); toast._h = setTimeout(function(){ t.classList.remove("show"); }, 3200);
+}
+function defaultAdj(){
+  return { brightness:0, contrast:0, exposure:0, gamma:1, shadows:0, highlights:0,
+           saturation:0, temperature:0, blur:0, sharpness:0,
+           chR:30, chG:59, chB:11, blackPoint:0, whitePoint:255, invert:false,
+           /* Fase 2 */
+           levelsGamma:1, curve:[0,64,128,192,255],
+           sharpRadius:1, sharpThreshold:3,
+           denoise:0, denoiseDetail:65,
+           bgRemove:false, bgTolerance:32, bgFeather:6,
+           /* Fase 3 */
+           bgMode:"mejorada", bgRefine:55, bgShrink:1, autoEnhanced:false };
+}
+function ensureAdj(item){
+  if (!item) return item;
+  var d = defaultAdj();
+  if (!item.adj) item.adj = d;
+  else { for (var k in d) if (item.adj[k] === undefined) item.adj[k] = d[k]; }
+  if (!item.adj.curve || item.adj.curve.length !== 5) item.adj.curve = d.curve.slice();
+  return item;
+}
+function buildCurveLUT(curve){
+  var lut = new Uint8ClampedArray(256), i;
+  if (!curve || curve.length !== 5){ for (i=0;i<256;i++) lut[i]=i; return lut; }
+  var xs = [0,64,128,192,255];
+  var isIdentity = curve[0]===0 && curve[1]===64 && curve[2]===128 && curve[3]===192 && curve[4]===255;
+  if (isIdentity){ for (i=0;i<256;i++) lut[i]=i; return lut; }
+  for (i=0;i<256;i++){
+    var seg = i>=192?3:(i>=128?2:(i>=64?1:0));
+    var x0=xs[seg], x1=xs[seg+1], y0=curve[seg], y1=curve[seg+1];
+    var t=(i-x0)/Math.max(1,(x1-x0));
+    /* interpolación suave (smoothstep) entre puntos de control */
+    var s=t*t*(3-2*t);
+    lut[i]=clamp(Math.round(y0+(y1-y0)*s),0,255);
+  }
+  return lut;
+}
+/* ---------- Fase 3: modelos de impresora ---------- */
+var PRINTERS = [
+  { id:"c9", name:"Microfast C9", short:"C9", roll:57, printable:48, dpi:203, note:"Rollo 57 mm. El perfil de referencia de FunPrint Studio.", thermal:{ density:100, printGamma:1, printContrast:0, blackLevel:0 } },
+  { id:"gen58", name:"Genérica Bluetooth 58 mm", short:"58 mm", roll:58, printable:48, dpi:203, note:"Mini impresoras 58 mm tipo POS/Bluetooth. Suelen imprimir un poco más claro: densidad levemente mayor.", thermal:{ density:106, printGamma:1.05, printContrast:4, blackLevel:2 } },
+  { id:"pos80", name:"POS / escritorio 80 mm", short:"POS 80", roll:80, printable:72, dpi:203, note:"Rollo 80 mm, collar ancho. Ideal para tiras anchas y hojas de contacto.", thermal:{ density:100, printGamma:1, printContrast:0, blackLevel:0 } },
+  { id:"peripage", name:"PeriPage A6 · 304 dpi", short:"PeriPage", roll:57, printable:48, dpi:304, note:"Mayor resolución (304 dpi): tramados más finos, archivos más grandes.", thermal:{ density:98, printGamma:1.08, printContrast:-2, blackLevel:0 } },
+  { id:"phomemo", name:"Phomemo M02 / M110", short:"Phomemo", roll:57, printable:48, dpi:203, note:"Papel adhesivo frecuente. Gamma un poco más suave para evitar negros empastados.", thermal:{ density:97, printGamma:1.14, printContrast:-4, blackLevel:0 } },
+  { id:"mini57", name:"Mini térmica 57 mm (tipo CAT)", short:"Mini 57", roll:57, printable:48, dpi:200, note:"Impresoras mini económicas: contraste algo mayor y negros más marcados.", thermal:{ density:108, printGamma:0.96, printContrast:8, blackLevel:6 } },
+  { id:"custom-printer", name:"Personalizada", short:"Personalizada", roll:57, printable:48, dpi:203, note:"Dejá los valores que trae y ajustá rollo, imprimible y dpi a mano abajo.", thermal:{ density:100, printGamma:1, printContrast:0, blackLevel:0 } }
+];
+function printerById(id){ for (var i=0;i<PRINTERS.length;i++) if (PRINTERS[i].id===id) return PRINTERS[i]; return PRINTERS[0]; }
+var state = {
+  name: "Collar sin título",
+  settings: {
+    printer: "c9",
+    rollWidth: 57, printableWidth: 48,
+    collarWidth: 48, collarHeight: 120,
+    margin: 3, gap: 4, dpi: 203,
+    orientation: "vertical"
+  },
+  thermal: { method:"floyd", threshold:128, density:100, printGamma:1, printContrast:0, blackLevel:0, invert:false, profile:"fotos" },
+  photos: [],        /* {id,name,dataURL,w,h,img} */
+  items: [],         /* lienzo */
+  selectedId: null,
+  view: "design",    /* design | mono | thermal */
+  zoom: 1,
+  showGuides: true
+};
+function pxPerMm(){ return state.settings.dpi / 25.4; }
+function outW(){ return Math.max(8, Math.round(state.settings.collarWidth * pxPerMm())); }
+function outH(){ return Math.max(8, Math.round(state.settings.collarHeight * pxPerMm())); }
+function photoById(id){ for (var i=0;i<state.photos.length;i++) if (state.photos[i].id===id) return state.photos[i]; return null; }
+function itemById(id){ for (var i=0;i<state.items.length;i++) if (state.items[i].id===id) return state.items[i]; return null; }
+function selected(){ return state.selectedId ? itemById(state.selectedId) : null; }
+
+/* ---------------- Historial (deshacer / rehacer) ---------------- */
+var undoStack = { stack: [], idx: -1, labels: [] };
+function snapshot(){
+  return JSON.stringify({
+    name: state.name, settings: state.settings, thermal: state.thermal,
+    photoIds: state.photos.map(function(p){ return p.id; }),
+    items: state.items, selectedId: state.selectedId
+  });
+}
+function pushHistory(label){
+  undoStack.stack = undoStack.stack.slice(0, undoStack.idx + 1);
+  undoStack.labels = undoStack.labels.slice(0, undoStack.idx + 1);
+  undoStack.stack.push(snapshot());
+  undoStack.labels.push({ label: label, time: new Date() });
+  if (undoStack.stack.length > 40){ undoStack.stack.shift(); undoStack.labels.shift(); }
+  undoStack.idx = undoStack.stack.length - 1;
+  renderHistory(); updateUndoBtns();
+}
+function restore(snap){
+  var s = JSON.parse(snap);
+  state.name = s.name; state.settings = s.settings; state.thermal = s.thermal;
+  if (!state.settings.printer) state.settings.printer = "c9";
+  var bsR = document.getElementById("brandSub"); if (bsR){ var prR = printerById(state.settings.printer); bsR.textContent = prR.name + " · " + state.settings.rollWidth + " mm"; }
+  state.items = s.items; state.selectedId = s.selectedId;
+  state.photos = state.photos.filter(function(p){ return s.photoIds.indexOf(p.id) >= 0; });
+  $("#projName").value = state.name;
+  fullRender();
+}
+function undo(){ if (undoStack.idx > 0){ undoStack.idx--; restore(undoStack.stack[undoStack.idx]); renderHistory(); updateUndoBtns(); } }
+function redo(){ if (undoStack.idx < undoStack.stack.length - 1){ undoStack.idx++; restore(undoStack.stack[undoStack.idx]); renderHistory(); updateUndoBtns(); } }
+function updateUndoBtns(){
+  $("#undoBtn").disabled = undoStack.idx <= 0;
+  $("#redoBtn").disabled = undoStack.idx >= undoStack.stack.length - 1;
+}
+function renderHistory(){
+  var el = $("#histList"); el.innerHTML = "";
+  if (!undoStack.labels.length){ el.innerHTML = '<div class="empty-note">Sin movimientos todavía.</div>'; return; }
+  undoStack.labels.forEach(function(h, i){
+    var d = document.createElement("div");
+    d.className = "hist-row" + (i === undoStack.idx ? " cur" : "");
+    var t = ("0"+h.time.getHours()).slice(-2) + ":" + ("0"+h.time.getMinutes()).slice(-2);
+    d.innerHTML = "<span></span><time></time>";
+    d.firstChild.textContent = h.label; d.lastChild.textContent = t;
+    el.appendChild(d);
+  });
+}
+/* ============================================================
+   Procesamiento de imagen — ajustes por foto (no destructivo:
+   siempre se parte de la imagen original importada)
+   ============================================================ */
+function processPixels(data, w, h, adj, toMono){
+  var d = data.data;
+  var expF = Math.pow(2, (adj.exposure||0) / 50);
+  var conF = 1 + (adj.contrast||0) / 100; if (conF < 0) conF = 0;
+  var bri = (adj.brightness||0) * 1.2;
+  var wSum = ((adj.chR||0) + (adj.chG||0) + (adj.chB||0)) || 1;
+  var wr = (adj.chR||0) / wSum, wg = (adj.chG||0) / wSum, wb = (adj.chB||0) / wSum;
+  var bp = adj.blackPoint||0, wp = Math.max(bp + 8, (adj.whitePoint===undefined?255:adj.whitePoint));
+  var invG = 1 / Math.max(0.2, adj.gamma||1);
+  var invLG = 1 / Math.max(0.2, adj.levelsGamma||1);
+  var lut = buildCurveLUT(adj.curve);
+  var sh = (adj.shadows||0) / 100, hi = (adj.highlights||0) / 100;
+  var sat = 1 + (adj.saturation||0) / 100;
+  var tmp = (adj.temperature||0) * 0.6;
+  function chan(c){
+    c = (c - 128) * conF + 128 + bri;
+    c = clamp((c - bp) * 255 / (wp - bp), 0, 255);
+    c = 255 * Math.pow(c / 255, invG);
+    c = 255 * Math.pow(clamp(c,0,255) / 255, invLG);
+    return lut[clamp(Math.round(c),0,255)];
+  }
+  for (var i = 0; i < d.length; i += 4){
+    if (d[i+3] === 0) continue;
+    var r = d[i], g = d[i+1], b = d[i+2];
+    r += tmp; b -= tmp;
+    var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    r = lum + (r - lum) * sat; g = lum + (g - lum) * sat; b = lum + (b - lum) * sat;
+    r *= expF; g *= expF; b *= expF;
+    var v;
+    if (toMono){
+      v = r * wr + g * wg + b * wb;
+      v = (v - 128) * conF + 128 + bri;
+      v = clamp((v - bp) * 255 / (wp - bp), 0, 255);
+      v = 255 * Math.pow(v / 255, invG);
+      v = 255 * Math.pow(clamp(v,0,255) / 255, invLG);
+      if (sh) v += (1 - v / 255) * (v / 255) * sh * 90 * (v < 128 ? 1 : 0.25);
+      if (hi) v += (v / 255) * (v / 255) * hi * 90 * (v > 128 ? 1 : 0.25);
+      v = lut[clamp(Math.round(v),0,255)];
+      v = clamp(v, 0, 255);
+      if (adj.invert) v = 255 - v;
+      d[i] = d[i+1] = d[i+2] = v;
+    } else {
+      d[i] = chan(r); d[i+1] = chan(g); d[i+2] = chan(b);
+      if (adj.invert){ d[i] = 255 - d[i]; d[i+1] = 255 - d[i+1]; d[i+2] = 255 - d[i+2]; }
+    }
+  }
+}
+function sharpenCanvas(cv, amount){
+  if (!amount) return;
+  var w = cv.width, h = cv.height, ctx = cv.getContext("2d");
+  var src = ctx.getImageData(0, 0, w, h), out = ctx.createImageData(w, h);
+  var s = src.data, o = out.data, k = amount / 60;
+  for (var y = 0; y < h; y++) for (var x = 0; x < w; x++){
+    var idx = (y * w + x) * 4;
+    if (x === 0 || y === 0 || x === w - 1 || y === h - 1){ o[idx]=s[idx]; o[idx+1]=s[idx+1]; o[idx+2]=s[idx+2]; o[idx+3]=s[idx+3]; continue; }
+    for (var c = 0; c < 3; c++){
+      var val = s[idx+c] * (1 + 4 * k) - k * (s[idx-4+c] + s[idx+4+c] + s[idx-w*4+c] + s[idx+w*4+c]);
+      o[idx+c] = clamp(val, 0, 255);
+    }
+    o[idx+3] = s[idx+3];
+  }
+  ctx.putImageData(out, 0, 0);
+}
+/* --- Fase 2: desenfoque de caja (para unsharp y ruido) --- */
+function boxBlurData(srcData, w, h, radius){
+  var passes = Math.max(1, Math.round(radius));
+  var cur = new Uint8ClampedArray(srcData);
+  var tmp = new Uint8ClampedArray(cur.length);
+  for (var p = 0; p < passes; p++){
+    var x, y, c, i;
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++){
+      var a=0,b=0,cc=0,n=0;
+      for (var dx=-1; dx<=1; dx++){ var nx=x+dx; if (nx<0||nx>=w) continue; i=(y*w+nx)*4; a+=cur[i]; b+=cur[i+1]; cc+=cur[i+2]; n++; }
+      i=(y*w+x)*4; tmp[i]=a/n; tmp[i+1]=b/n; tmp[i+2]=cc/n; tmp[i+3]=cur[i+3];
+    }
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++){
+      var a2=0,b2=0,c2=0,n2=0;
+      for (var dy=-1; dy<=1; dy++){ var ny=y+dy; if (ny<0||ny>=h) continue; i=(ny*w+x)*4; a2+=tmp[i]; b2+=tmp[i+1]; c2+=tmp[i+2]; n2++; }
+      i=(y*w+x)*4; cur[i]=a2/n2; cur[i+1]=b2/n2; cur[i+2]=c2/n2;
+    }
+  }
+  return cur;
+}
+function unsharpCanvas(cv, amount, radius, threshold){
+  if (!amount) return;
+  var w=cv.width, h=cv.height, ctx=cv.getContext("2d");
+  var idata=ctx.getImageData(0,0,w,h), s=idata.data;
+  var blurred=boxBlurData(s,w,h,radius||1);
+  var strength=amount/45;
+  for (var i=0;i<s.length;i+=4){
+    if (s[i+3]===0) continue;
+    for (var c=0;c<3;c++){
+      var diff=s[i+c]-blurred[i+c];
+      if (Math.abs(diff) < (threshold||0)) continue;
+      s[i+c]=clamp(s[i+c]+diff*strength,0,255);
+    }
+  }
+  ctx.putImageData(idata,0,0);
+}
+function denoiseCanvas(cv, amount, detail){
+  if (!amount) return;
+  var w=cv.width, h=cv.height, ctx=cv.getContext("2d");
+  var idata=ctx.getImageData(0,0,w,h), s=idata.data;
+  var blurred=boxBlurData(s,w,h, amount>55?2:1);
+  var base=amount/100, keep=(detail===undefined?65:detail)/100;
+  for (var i=0;i<s.length;i+=4){
+    if (s[i+3]===0) continue;
+    /* preserva detalle: donde hay borde fuerte, suaviza menos */
+    var edge=Math.abs(s[i]-blurred[i])+Math.abs(s[i+1]-blurred[i+1])+Math.abs(s[i+2]-blurred[i+2]);
+    var edgeFactor=clamp(1-(edge/90)*keep*1.6,0.12,1);
+    var a=base*edgeFactor;
+    for (var c=0;c<3;c++) s[i+c]=s[i+c]*(1-a)+blurred[i+c]*a;
+  }
+  ctx.putImageData(idata,0,0);
+}
+/* Eliminación de fondo simple: color de referencia = promedio de las esquinas
+   de la foto ya recortada. Distancia de color -> alfa, con borde suavizado. */
+function computeBgMask(origData, w, h, tolerance, feather, insetX, insetY){
+  var d=origData.data, ix=Math.round(insetX||0), iy=Math.round(insetY||0);
+  function patch(cx, cy){
+    var r=0,g=0,b=0,n=0, sz=6;
+    for (var y=Math.max(0,cy); y<Math.min(h,cy+sz); y++) for (var x=Math.max(0,cx); x<Math.min(w,cx+sz); x++){
+      var i=(y*w+x)*4; if (d[i+3]===0) continue; r+=d[i]; g+=d[i+1]; b+=d[i+2]; n++;
+    }
+    return n?[r/n,g/n,b/n]:[255,255,255];
+  }
+  var corners=[patch(ix,iy),patch(w-6-ix,iy),patch(ix,h-6-iy),patch(w-6-ix,h-6-iy)];
+  var br=0,bg=0,bb=0; corners.forEach(function(c){ br+=c[0]/4; bg+=c[1]/4; bb+=c[2]/4; });
+  var mask=new Uint8ClampedArray(w*h), fea=Math.max(4,(feather||0)*4), tol=(tolerance||32)*2.2;
+  for (var idx=0; idx<w*h; idx++){
+    var i=idx*4;
+    var dist=Math.sqrt(Math.pow(d[i]-br,2)+Math.pow(d[i+1]-bg,2)+Math.pow(d[i+2]-bb,2));
+    if (dist<=tol) mask[idx]=0;
+    else if (dist>=tol+fea) mask[idx]=255;
+    else mask[idx]=Math.round((dist-tol)/fea*255);
+  }
+  return mask;
+}
+/* --- Fase 3: eliminación de fondo mejorada ---
+   Muestra todo el borde (no solo esquinas), crece desde el borde solo por
+   zonas conectadas parecidas al fondo (no borra colores iguales dentro del
+   sujeto) y refina el borde: suaviza la máscara, limpia puntos aislados y
+   permite contraer el recorte para sacar el halo claro. */
+function blurMask(mask, w, h, passes){
+  var cur = new Float32Array(mask), tmp = new Float32Array(mask.length);
+  for (var p=0;p<passes;p++){
+    var x,y,i;
+    for (y=0;y<h;y++) for (x=0;x<w;x++){ var s=0,n=0; for (var dx=-1;dx<=1;dx++){ var nx=x+dx; if(nx<0||nx>=w) continue; s+=cur[y*w+nx]; n++; } tmp[y*w+x]=s/n; }
+    for (y=0;y<h;y++) for (x=0;x<w;x++){ var s2=0,n2=0; for (var dy=-1;dy<=1;dy++){ var ny=y+dy; if(ny<0||ny>=h) continue; s2+=tmp[ny*w+x]; n2++; } cur[y*w+x]=s2/n2; }
+  }
+  var out = new Uint8ClampedArray(mask.length);
+  for (i=0;i<mask.length;i++) out[i]=Math.round(cur[i]);
+  return out;
+}
+function computeBgMaskImproved(origData, w, h, tolerance, feather, refine, shrink, insetX, insetY){
+  var d = origData.data, ix = Math.round(insetX||0), iy = Math.round(insetY||0);
+  var x0 = Math.min(ix, w-2), x1 = Math.max(x0+1, w-1-ix), y0 = Math.min(iy, h-2), y1 = Math.max(y0+1, h-1-iy);
+  /* modelo de fondo desde todo el borde interior */
+  var br=0,bg=0,bb=0,bn=0, x, y, i;
+  function sample(px,py){ var j=(py*w+px)*4; if (d[j+3]===0) return; br+=d[j]; bg+=d[j+1]; bb+=d[j+2]; bn++; }
+  for (x=x0;x<=x1;x++){ sample(x,y0); sample(x,y1); }
+  for (y=y0;y<=y1;y++){ sample(x0,y); sample(x1,y); }
+  if (!bn){ br=255; bg=255; bb=255; bn=1; }
+  br/=bn; bg/=bn; bb/=bn;
+  var tol = (tolerance||32)*2.4, tolLocal = Math.max(18, tol*0.45);
+  function distToBg(j){ return Math.sqrt(Math.pow(d[j]-br,2)+Math.pow(d[j+1]-bg,2)+Math.pow(d[j+2]-bb,2)); }
+  /* crecimiento desde el borde: pila DFS, solo fondo conectado */
+  var isBg = new Uint8Array(w*h), stack = [];
+  function trySeed(idx){
+    if (isBg[idx]) return;
+    if (distToBg(idx*4) <= tol){ isBg[idx]=1; stack.push(idx); }
+  }
+  for (x=x0;x<=x1;x++){ trySeed(y0*w+x); trySeed(y1*w+x); }
+  for (y=y0;y<=y1;y++){ trySeed(y*w+x0); trySeed(y*w+x1); }
+  while (stack.length){
+    var cur = stack.pop(), cx = cur % w, cy = (cur / w)|0, cj = cur*4;
+    var nb = [cur-1, cur+1, cur-w, cur+w];
+    for (var k=0;k<4;k++){
+      var nidx = nb[k];
+      if (nidx<0||nidx>=w*h||isBg[nidx]) continue;
+      if ((k===0 && cx===0)||(k===1 && cx===w-1)||(k===2 && cy===0)||(k===3 && cy===h-1)) continue;
+      var nj = nidx*4;
+      var local = Math.sqrt(Math.pow(d[nj]-d[cj],2)+Math.pow(d[nj+1]-d[cj+1],2)+Math.pow(d[nj+2]-d[cj+2],2));
+      if (distToBg(nj) <= tol && local <= tolLocal + tol*0.35){ isBg[nidx]=1; stack.push(nidx); }
+    }
+  }
+  var mask = new Uint8ClampedArray(w*h);
+  for (i=0;i<w*h;i++) mask[i] = isBg[i] ? 0 : 255;
+  /* contraer: expandir el fondo shrink píxeles para comer el halo */
+  var sh = clamp(Math.round(shrink||0), 0, 3);
+  for (var s2=0;s2<sh;s2++){
+    var src = mask.slice();
+    for (y=1;y<h-1;y++) for (x=1;x<w-1;x++){
+      var idx=y*w+x; if (src[idx]===0) continue;
+      if (src[idx-1]===0||src[idx+1]===0||src[idx-w]===0||src[idx+w]===0) mask[idx]=0;
+    }
+  }
+  /* limpiar motas: píxeles de fondo aislados dentro del sujeto vuelven a 255 y viceversa */
+  var src2 = mask.slice();
+  for (y=1;y<h-1;y++) for (x=1;x<w-1;x++){
+    var idx2=y*w+x, same=0;
+    if (src2[idx2-1]===src2[idx2]) same++; if (src2[idx2+1]===src2[idx2]) same++;
+    if (src2[idx2-w]===src2[idx2]) same++; if (src2[idx2+w]===src2[idx2]) same++;
+    if (same===0) mask[idx2]=255-src2[idx2];
+  }
+  /* refinado de bordes: suavizado proporcional a refine + feather */
+  var passes = clamp(Math.round(((refine===undefined?55:refine)/100)*3 + (feather||0)/7), 0, 5);
+  if (passes>0) mask = blurMask(mask, w, h, passes);
+  return mask;
+}
+function applyAlphaMask(cv, mask){
+  var ctx=cv.getContext("2d"), idata=ctx.getImageData(0,0,cv.width,cv.height), d=idata.data;
+  for (var idx=0; idx<mask.length; idx++){
+    d[idx*4+3]=mask[idx];
+    if (mask[idx]===0){ d[idx*4]=255; d[idx*4+1]=255; d[idx*4+2]=255; }
+  }
+  ctx.putImageData(idata,0,0);
+}
+/* Dibuja la foto de un ítem en un canvas temporal a resolución de salida,
+   aplicando recorte (zoom/desplazamiento), desenfoque y ajustes. */
+function renderPhotoCanvas(item, toMono, targetW){
+  ensureAdj(item);
+  var photo = photoById(item.photoId); if (!photo) return null;
+  var ppm = pxPerMm();
+  var w = Math.max(2, Math.round(item.w * ppm)), h = Math.max(2, Math.round(item.h * ppm));
+  if (targetW && w > targetW){ var sc = targetW / w; w = Math.max(2, Math.round(w * sc)); h = Math.max(2, Math.round(h * sc)); ppm = ppm * sc; }
+  var cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  var ctx = cv.getContext("2d");
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+  var frame = item.frame || 0;
+  var fx = frame * ppm, fy = frame * ppm, fw = w - fx * 2, fh = h - fy * 2;
+  if (fw < 4 || fh < 4){ fx = fy = 0; fw = w; fh = h; }
+  var img = photo.img;
+  var scale = Math.max(fw / img.naturalWidth, fh / img.naturalHeight) * (item.cropZoom || 1);
+  var dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+  var dx = fx + (fw - dw) / 2 + (item.cropX || 0) / 100 * fw;
+  var dy = fy + (fh - dh) / 2 + (item.cropY || 0) / 100 * fh;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(fx, fy, fw, fh); ctx.clip();
+  if (item.adj.blur > 0){ try { ctx.filter = "blur(" + (item.adj.blur * ppm / 4) + "px)"; } catch(e){} }
+  ctx.drawImage(img, dx, dy, dw, dh);
+  ctx.restore();
+  try { ctx.filter = "none"; } catch(e){}
+  var idata, bgMask = null;
+  try { idata = ctx.getImageData(0, 0, w, h); } catch(e){ return cv; }
+  /* Fondo: la máscara se calcula sobre el color original, antes de ajustes */
+  if (item.adj.bgRemove){
+    /* La máscara se calcula sincrónicamente sobre los datos originales, antes de mutarlos */
+    bgMask = item.adj.bgMode === "simple"
+      ? computeBgMask(idata, w, h, item.adj.bgTolerance, item.adj.bgFeather, fx, fy)
+      : computeBgMaskImproved(idata, w, h, item.adj.bgTolerance, item.adj.bgFeather, item.adj.bgRefine, item.adj.bgShrink, fx, fy);
+    if (fx > 0 || fy > 0){
+      for (var my=0; my<h; my++) for (var mx=0; mx<w; mx++){
+        if (mx < fx || mx >= w-fx || my < fy || my >= h-fy) bgMask[my*w+mx]=255;
+      }
+    }
+  }
+  if (item.adj.denoise > 0){ ctx.putImageData(idata, 0, 0); denoiseCanvas(cv, item.adj.denoise, item.adj.denoiseDetail); try{ idata = ctx.getImageData(0,0,w,h); }catch(e){} }
+  processPixels(idata, w, h, item.adj, toMono);
+  ctx.putImageData(idata, 0, 0);
+  if (item.adj.sharpness > 0) unsharpCanvas(cv, item.adj.sharpness, item.adj.sharpRadius || 1, item.adj.sharpThreshold || 0);
+  if (bgMask) applyAlphaMask(cv, bgMask);
+  return cv;
+}
+
+/* ============================================================
+   Motor térmico — tramado sobre un canvas monocromo completo.
+   Opera sobre el lienzo entero para que la vista térmica sea
+   píxel por píxel la misma imagen que se exporta.
+   ============================================================ */
+function applyThermal(cv){
+  var w = cv.width, h = cv.height, ctx = cv.getContext("2d");
+  var idata = ctx.getImageData(0, 0, w, h), d = idata.data;
+  var t = state.thermal, n = w * h, i, v;
+  var g = new Float32Array(n);
+  var conF = 1 + t.printContrast / 100; if (conF < 0) conF = 0;
+  var invG = 1 / Math.max(0.2, t.printGamma);
+  var dens = t.density / 100;
+  for (i = 0; i < n; i++){
+    v = d[i*4] * 0.299 + d[i*4+1] * 0.587 + d[i*4+2] * 0.114;
+    v = (v - 128) * conF + 128;
+    v = 255 * Math.pow(clamp(v, 0, 255) / 255, invG);
+    v = 255 - (255 - v) * dens;                       /* densidad de punto */
+    if (v < t.blackLevel) v = 0;                      /* nivel de negro */
+    if (t.invert) v = 255 - v;
+    g[i] = clamp(v, 0, 255);
+  }
+  var out = new Uint8Array(n), th = t.threshold;
+  function setP(idx, val){ out[idx] = val; }
+  if (t.method === "threshold" || t.method === "pure"){
+    var tEff = t.method === "pure" ? 160 : th;
+    for (i = 0; i < n; i++) setP(i, g[i] < tEff ? 0 : 255);
+  } else if (t.method === "bayer"){
+    var m4 = [0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+    var m8 = [0,32,8,40,2,34,10,42,48,16,56,24,50,18,58,26,12,44,4,36,14,46,6,38,60,28,52,20,62,30,54,22,3,35,11,43,1,33,9,41,51,19,59,27,49,17,57,25,15,47,7,39,13,45,5,37,63,31,55,23,61,29,53,21];
+    var use8 = outW() > 300, mat = use8 ? m8 : m4, ms = use8 ? 8 : 4, div = use8 ? 64 : 16;
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++){
+      i = y * w + x;
+      var tv = (mat[(y % ms) * ms + (x % ms)] + 0.5) / div * 255;
+      tv = tv * 0.6 + th * 0.4;                        /* el umbral desplaza la trama */
+      setP(i, g[i] < tv ? 0 : 255);
+    }
+  } else {
+    /* Difusión de error: Floyd-Steinberg, Atkinson, Jarvis-Judice-Ninke */
+    var kernel;
+    if (t.method === "atkinson") kernel = { div: 8, pts: [[1,0,1],[2,0,1],[-1,1,1],[0,1,1],[1,1,1],[0,2,1]] };
+    else if (t.method === "jarvis") kernel = { div: 48, pts: [[1,0,7],[2,0,5],[-2,1,3],[-1,1,5],[0,1,7],[1,1,5],[2,1,3],[-2,2,1],[-1,2,3],[0,2,5],[1,2,3],[2,2,1]] };
+    else kernel = { div: 16, pts: [[1,0,7],[-1,1,3],[0,1,5],[1,1,1]] };
+    for (var yy = 0; yy < h; yy++) for (var xx = 0; xx < w; xx++){
+      i = yy * w + xx;
+      var old = g[i], nw = old < th ? 0 : 255;
+      out[i] = nw;
+      var err = (old - nw) / kernel.div;
+      for (var k = 0; k < kernel.pts.length; k++){
+        var nx = xx + kernel.pts[k][0], ny = yy + kernel.pts[k][1];
+        if (nx >= 0 && nx < w && ny < h) g[ny * w + nx] += err * kernel.pts[k][2];
+      }
+    }
+  }
+  for (i = 0; i < n; i++){ d[i*4] = d[i*4+1] = d[i*4+2] = out[i]; d[i*4+3] = 255; }
+  ctx.putImageData(idata, 0, 0);
+  return cv;
+}
+/* Compone el collar completo a resolución de salida. mode: design|mono|thermal */
+function composeCanvas(mode){
+  var W = outW(), H = outH();
+  var cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  var ctx = cv.getContext("2d"), ppm = pxPerMm();
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+  var sorted = state.items.slice().sort(function(a, b){ return a.z - b.z; });
+  sorted.forEach(function(item){
+    if (item.hidden) return;
+    var cx = (item.x + item.w / 2) * ppm, cy = (item.y + item.h / 2) * ppm;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate((item.rotation || 0) * Math.PI / 180);
+    var wpx = item.w * ppm, hpx = item.h * ppm, x0 = -wpx / 2, y0 = -hpx / 2;
+    if (item.type === "photo"){
+      ctx.save();
+      if (item.shape === "circle"){ ctx.beginPath(); ctx.ellipse(0, 0, wpx/2, hpx/2, 0, 0, Math.PI * 2); ctx.clip(); }
+      else if ((item.radius || 0) > 0){ roundRect(ctx, x0, y0, wpx, hpx, item.radius * ppm); ctx.clip(); }
+      var pc = renderPhotoCanvas(item, mode !== "design");
+      if (pc) ctx.drawImage(pc, x0, y0);
+      ctx.restore();
+      if ((item.frame || 0) > 0){ ctx.strokeStyle = "#fff"; ctx.lineWidth = item.frame * ppm; ctx.strokeRect(x0, y0, wpx, hpx); }
+      if ((item.border || 0) > 0){ ctx.strokeStyle = "#111"; ctx.lineWidth = item.border * ppm; if (item.shape === "circle"){ ctx.beginPath(); ctx.ellipse(0,0,wpx/2,hpx/2,0,0,Math.PI*2); ctx.stroke(); } else ctx.strokeRect(x0, y0, wpx, hpx); }
+    } else if (item.type === "text"){
+      ctx.fillStyle = "#111";
+      ctx.font = (item.bold ? "700 " : "400 ") + (item.fontSize * ppm) + "px " + (item.fontFamily || "IBM Plex Sans, sans-serif");
+      ctx.textAlign = item.align || "left"; ctx.textBaseline = "top";
+      var lines = String(item.text || "").split("\n");
+      var tx = item.align === "center" ? 0 : (item.align === "right" ? wpx / 2 : x0);
+      lines.forEach(function(ln, li){ ctx.fillText(ln, tx, y0 + li * item.fontSize * ppm * 1.3, wpx); });
+    } else if (item.type === "rect" || item.type === "circle" || item.type === "line"){
+      ctx.fillStyle = "#111";
+      if (item.type === "rect") ctx.fillRect(x0, y0, wpx, hpx);
+      else if (item.type === "circle"){ ctx.beginPath(); ctx.ellipse(0, 0, wpx/2, hpx/2, 0, 0, Math.PI * 2); ctx.fill(); }
+      else ctx.fillRect(x0, cy - cy + hpx/2 - ppm * 0.4, wpx, ppm * 0.8);
+    }
+    ctx.restore();
+  });
+  if (mode === "thermal") applyThermal(cv);
+  else if (mode === "mono"){
+    var id2 = ctx.getImageData(0, 0, W, H), dd = id2.data;
+    for (var i = 0; i < dd.length; i += 4){ var v2 = dd[i]; dd[i] = dd[i+1] = dd[i+2] = v2; }
+    ctx.putImageData(id2, 0, 0);
+  }
+  return cv;
+}
+function roundRect(ctx, x, y, w, h, r){
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+/* ============================================================
+   Render del lienzo (DOM) y vista previa
+   ============================================================ */
+var paperEl = $("#paper"), thermalTimer = null, lastThermalSize = 0;
+function dispScale(){ return 5.2 * state.zoom; }   /* px de pantalla por mm */
+function refreshPaper(){
+  var s = dispScale(), S = state.settings;
+  paperEl.style.width = (S.collarWidth * s) + "px";
+  paperEl.style.height = (S.collarHeight * s) + "px";
+  var roll = $("#rollEl");
+  roll.style.width = (S.rollWidth * s) + "px";
+  $("#rollLbl").textContent = "Rollo " + S.rollWidth + " mm · imprimible " + S.printableWidth + " mm";
+  var mg = $("#marginGuide");
+  mg.style.display = state.showGuides ? "block" : "none";
+  mg.style.left = mg.style.top = (S.margin * s) + "px";
+  mg.style.right = mg.style.bottom = (S.margin * s) + "px";
+  var pg = $("#printGuide");
+  var extra = (S.collarWidth - S.printableWidth) / 2;
+  pg.style.display = (state.showGuides && extra > 0.05) ? "block" : "none";
+  pg.style.left = (extra * s) + "px"; pg.style.width = (S.printableWidth * s) + "px";
+  paperEl.classList.toggle("thermal", state.view === "thermal");
+  paperEl.classList.toggle("pixelated", state.zoom >= 1.6);
+  $("#paperEmpty").style.display = state.items.length ? "none" : "grid";
+  $("#zoomVal").textContent = Math.round(state.zoom * 100) + "%";
+  var hints = { design: "Vista de diseño: composición en color.", mono: "Vista monocromática: grises según la ponderación de canales de cada foto.", thermal: "Vista térmica: exactamente los píxeles que se exportan en el PNG térmico." };
+  $("#viewHint").textContent = hints[state.view];
+  $all(".seg [data-view]").forEach(function(b){ b.classList.toggle("on", b.dataset.view === state.view); });
+  scheduleThermal();
+}
+function itemEl(item){
+  var el = document.createElement("div");
+  el.className = "item" + (item.id === state.selectedId ? " sel" : "") + (item.locked ? " locked" : "");
+  el.dataset.id = item.id;
+  var s = dispScale();
+  el.style.left = (item.x * s) + "px"; el.style.top = (item.y * s) + "px";
+  el.style.width = (item.w * s) + "px"; el.style.height = (item.h * s) + "px";
+  el.style.transform = "rotate(" + (item.rotation || 0) + "deg)";
+  el.style.zIndex = 10 + item.z;
+  if (item.hidden) el.style.display = "none";
+  if (item.type === "photo"){
+    var cv = renderPhotoCanvas(item, state.view === "mono");
+    if (cv){ cv.style.imageRendering = state.zoom >= 1.6 ? "pixelated" : "auto"; if (item.adj && item.adj.bgRemove && state.view === "design") cv.classList.add("checker"); el.appendChild(cv); }
+    if (item.shape === "circle") el.style.borderRadius = "50%", el.style.overflow = "hidden";
+    else if (item.radius) el.style.borderRadius = (item.radius * s) + "px", el.style.overflow = "hidden";
+    if (item.border) el.style.boxShadow = "inset 0 0 0 " + Math.max(1, item.border * s) + "px #111";
+  } else if (item.type === "text"){
+    var t = document.createElement("div"); t.className = "text-el";
+    t.textContent = item.text;
+    t.style.fontSize = (item.fontSize * s) + "px";
+    t.style.fontWeight = item.bold ? "700" : "400";
+    t.style.textAlign = item.align || "left";
+    t.style.fontFamily = item.fontFamily || "inherit";
+    el.appendChild(t);
+  } else {
+    var sh = document.createElement("div"); sh.className = "shape-el";
+    sh.style.background = "#111";
+    if (item.type === "circle") sh.style.borderRadius = "50%";
+    if (item.type === "line"){ sh.style.height = "2px"; sh.style.marginTop = "calc(50% - 1px)"; }
+    el.appendChild(sh);
+  }
+  var hSe = document.createElement("div"); hSe.className = "handle se"; hSe.dataset.handle = "se"; el.appendChild(hSe);
+  var hRot = document.createElement("div"); hRot.className = "handle rot"; hRot.dataset.handle = "rot"; el.appendChild(hRot);
+  el.addEventListener("pointerdown", onItemPointerDown);
+  return el;
+}
+function renderItems(){
+  $all(".item", paperEl).forEach(function(n){ n.remove(); });
+  state.items.slice().sort(function(a,b){ return a.z - b.z; }).forEach(function(item){ paperEl.appendChild(itemEl(item)); });
+  refreshPaper(); renderLayers(); updateStats();
+}
+function renderLayers(){
+  var list = $("#layerList"); list.innerHTML = "";
+  var sorted = state.items.slice().sort(function(a, b){ return b.z - a.z; });
+  $("#layerEmpty").style.display = sorted.length ? "none" : "block";
+  sorted.forEach(function(item){
+    var row = document.createElement("div");
+    row.className = "layer-row" + (item.id === state.selectedId ? " sel" : "");
+    var nm = document.createElement("span"); nm.className = "nm"; nm.textContent = item.name;
+    row.appendChild(nm);
+    function mkBtn(title, path, fn){
+      var b = document.createElement("button"); b.title = title;
+      b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>';
+      b.addEventListener("click", function(e){ e.stopPropagation(); fn(); });
+      return b;
+    }
+    row.appendChild(mkBtn(item.hidden ? "Mostrar" : "Ocultar", item.hidden ? '<path d="M9.9 4.24A9.5 9.5 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19M6.61 6.61A13.5 13.5 0 0 0 2 12s3 8 10 8a9.7 9.7 0 0 0 5.39-1.61"/><path d="m2 2 20 20"/><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>' : '<path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8-10-8-10-8Z"/><circle cx="12" cy="12" r="3"/>', function(){ item.hidden = !item.hidden; pushHistory(item.hidden ? "Capa oculta" : "Capa visible"); renderItems(); }));
+    row.appendChild(mkBtn(item.locked ? "Desbloquear" : "Bloquear", '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', function(){ item.locked = !item.locked; pushHistory(item.locked ? "Capa bloqueada" : "Capa desbloqueada"); renderItems(); renderRight(); }));
+    row.appendChild(mkBtn("Subir capa", '<path d="m18 15-6-6-6 6"/>', function(){ item.z += 1.5; normalizeZ(); pushHistory("Capa subida"); renderItems(); }));
+    row.appendChild(mkBtn("Eliminar", '<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/>', function(){ deleteItem(item.id); }));
+    row.addEventListener("click", function(){ selectItem(item.id); });
+    list.appendChild(row);
+  });
+}
+function normalizeZ(){
+  state.items.slice().sort(function(a,b){ return a.z - b.z; }).forEach(function(it, i){ it.z = i + 1; });
+}
+function updateStats(){
+  var S = state.settings, photos = state.items.filter(function(i){ return i.type === "photo"; }).length;
+  var sizeTxt = lastThermalSize ? (lastThermalSize > 1024 ? (lastThermalSize/1024).toFixed(1) + " KB" : lastThermalSize + " B") : "—";
+  var over = S.collarWidth > S.printableWidth;
+  $("#statsBar").innerHTML =
+    stat(S.collarWidth + " × " + S.collarHeight + " mm", "Collar (ancho × largo)") +
+    stat(S.rollWidth + " mm", "Rollo físico") +
+    '<div class="stat' + (over ? ' warn' : '') + '"><b>' + S.printableWidth + " mm" + (over ? " ⚠" : "") + '</b><span>Ancho imprimible</span></div>' +
+    stat(photos + "", "Fotografías") +
+    stat(outW() + " × " + outH() + " px", "Salida a " + S.dpi + " dpi") +
+    stat(sizeTxt, "PNG térmico aprox.") +
+    stat(methodLabel(state.thermal.method), "Tramado · " + profileLabel(state.thermal.profile));
+  function stat(b, s){ return '<div class="stat"><b>' + b + '</b><span>' + s + '</span></div>'; }
+}
+function methodLabel(m){ return { threshold:"Umbral simple", floyd:"Floyd-Steinberg", atkinson:"Atkinson", bayer:"Bayer ordenado", jarvis:"Jarvis-Judice-Ninke", pure:"B/N puro" }[m] || m; }
+function methodDesc(m){ return { threshold:"Alto contraste, ideal para gráficos simples.", floyd:"El mejor para fotos con degradados suaves.", atkinson:"Contraste marcado, estilo clásico de Macintosh.", bayer:"Trama ordenada y uniforme, patrón visible y regular.", jarvis:"Transiciones tonales muy suaves, difusión amplia.", pure:"Solo negro o blanco plenos: dibujos, texto y logos." }[m] || ""; }
+function profileLabel(p){ var pr = printerById(state.settings.printer || "c9"); return { fotos: pr.name + " · Fotografías", retratos: pr.name + " · Retratos", dibujos: pr.name + " · Dibujos", texto: pr.name + " · Texto", custom:"Personalizado" }[p] || p; }
+function applyPrinter(id, silent){
+  var pr = printerById(id), S = state.settings;
+  S.printer = pr.id; S.rollWidth = pr.roll; S.printableWidth = pr.printable; S.dpi = pr.dpi;
+  if (S.collarWidth > pr.roll) S.collarWidth = pr.printable;
+  Object.assign(state.thermal, pr.thermal);
+  var bs = document.getElementById("brandSub"); if (bs) bs.textContent = pr.name + " · " + pr.roll + " mm";
+  if (!silent){ pushHistory("Impresora: " + pr.name); fullRender(); toast("Impresora " + pr.name + ": rollo " + pr.roll + " mm, imprimible " + pr.printable + " mm, " + pr.dpi + " dpi. Se aplicaron sus parámetros térmicos base; el perfil de calibración (fotos/retratos…) se mantiene."); }
+}
+/* La vista térmica y el tamaño estimado salen del MISMO canvas que se exporta */
+function scheduleThermal(){
+  if (state.view !== "thermal"){ updateStats(); return; }
+  clearTimeout(thermalTimer);
+  thermalTimer = setTimeout(function(){
+    var cv = composeCanvas("thermal");
+    var tc = $("#thermalCanvas");
+    tc.width = cv.width; tc.height = cv.height;
+    tc.getContext("2d").drawImage(cv, 0, 0);
+    cv.toBlob(function(blob){ if (blob){ lastThermalSize = blob.size; updateStats(); } }, "image/png");
+  }, 60);
+}
+function refreshThermalSize(){
+  clearTimeout(thermalTimer);
+  thermalTimer = setTimeout(function(){
+    var cv = composeCanvas(state.view === "thermal" ? "thermal" : "mono");
+    if (state.view === "thermal"){
+      var tc = $("#thermalCanvas"); tc.width = cv.width; tc.height = cv.height;
+      tc.getContext("2d").drawImage(cv, 0, 0);
+    }
+    composeCanvas("thermal").toBlob(function(blob){ if (blob){ lastThermalSize = blob.size; updateStats(); } }, "image/png");
+  }, 120);
+}
+function fullRender(){ renderItems(); renderPhotos(); renderRight(); refreshThermalSize(); }
+function selectItem(id){ state.selectedId = id; renderItems(); renderRight(); }
+/* ============================================================
+   Interacción: mover, redimensionar, rotar (puntero unificado)
+   ============================================================ */
+var drag = null;
+function onItemPointerDown(e){
+  var el = e.currentTarget, item = itemById(el.dataset.id);
+  if (!item || state.view === "thermal") return;
+  e.preventDefault();
+  selectItem(item.id);
+  el = $('.item[data-id="' + item.id + '"]'); if (!el) return;
+  if (item.locked) return;
+  var handle = e.target.dataset ? e.target.dataset.handle : null;
+  var s = dispScale();
+  drag = { item: item, mode: handle === "se" ? "resize" : (handle === "rot" ? "rotate" : "move"),
+           sx: e.clientX, sy: e.clientY, x: item.x, y: item.y, w: item.w, h: item.h, rot: item.rotation || 0,
+           cx: 0, cy: 0, a0: 0, el: el };
+  if (drag.mode === "rotate"){
+    var r = paperEl.getBoundingClientRect();
+    drag.cx = r.left + (item.x + item.w / 2) * s; drag.cy = r.top + (item.y + item.h / 2) * s;
+    drag.a0 = Math.atan2(e.clientY - drag.cy, e.clientX - drag.cx) * 180 / Math.PI;
+  }
+  window.addEventListener("pointermove", onDragMove);
+  window.addEventListener("pointerup", onDragEnd, { once: true });
+}
+function onDragMove(e){
+  if (!drag) return;
+  var s = dispScale(), it = drag.item, dx = (e.clientX - drag.sx) / s, dy = (e.clientY - drag.sy) / s;
+  if (drag.mode === "move"){ it.x = mm(drag.x + dx); it.y = mm(drag.y + dy); }
+  else if (drag.mode === "resize"){
+    var rot = (it.rotation || 0) * Math.PI / 180;
+    var lx = dx * Math.cos(rot) + dy * Math.sin(rot), ly = -dx * Math.sin(rot) + dy * Math.cos(rot);
+    it.w = mm(Math.max(5, drag.w + lx)); it.h = mm(Math.max(5, drag.h + ly));
+  } else if (drag.mode === "rotate"){
+    var a = Math.atan2(e.clientY - drag.cy, e.clientX - drag.cx) * 180 / Math.PI;
+    var nr = drag.rot + (a - drag.a0);
+    if (e.shiftKey) nr = Math.round(nr / 15) * 15;
+    it.rotation = Math.round(((nr + 540) % 360) - 180);
+  }
+  var el = drag.el;
+  el.style.left = (it.x * s) + "px"; el.style.top = (it.y * s) + "px";
+  el.style.width = (it.w * s) + "px"; el.style.height = (it.h * s) + "px";
+  el.style.transform = "rotate(" + (it.rotation || 0) + "deg)";
+}
+function onDragEnd(){
+  window.removeEventListener("pointermove", onDragMove);
+  if (!drag) return;
+  var labels = { move: "Foto movida", resize: "Tamaño cambiado", rotate: "Foto rotada" };
+  pushHistory(labels[drag.mode] || "Cambio");
+  drag = null; renderItems(); renderRight();
+}
+paperEl.addEventListener("pointerdown", function(e){ if (e.target === paperEl && state.view !== "thermal") selectItem(null); });
+
+/* ============================================================
+   Importación y alta de elementos
+   ============================================================ */
+function importFiles(files){
+  var imgs = Array.prototype.filter.call(files, function(f){ return /^image\//.test(f.type); });
+  if (!imgs.length){ toast("No se encontraron imágenes en los archivos elegidos."); return; }
+  var pending = imgs.length;
+  imgs.forEach(function(f){
+    var rd = new FileReader();
+    rd.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        state.photos.push({ id: "p" + (uid++), name: f.name, dataURL: rd.result, w: img.naturalWidth, h: img.naturalHeight, img: img });
+        if (--pending === 0){ renderPhotos(); toast(imgs.length + (imgs.length === 1 ? " fotografía importada." : " fotografías importadas.") + " Tocá una para agregarla al collar."); }
+      };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(f);
+  });
+}
+function renderPhotos(){
+  var grid = $("#photoGrid"); grid.innerHTML = "";
+  $("#photoEmpty").style.display = state.photos.length ? "none" : "block";
+  state.photos.forEach(function(p){
+    var b = document.createElement("button"); b.className = "photo-thumb";
+    var im = document.createElement("img"); im.src = p.dataURL; im.alt = p.name;
+    var bd = document.createElement("span"); bd.className = "add-badge"; bd.textContent = "+ collar";
+    var nm = document.createElement("span"); nm.textContent = p.name + " · " + p.w + "×" + p.h;
+    b.appendChild(im); b.appendChild(bd); b.appendChild(nm);
+    b.title = "Agregar al collar";
+    b.addEventListener("click", function(){ addPhotoToCanvas(p); });
+    grid.appendChild(b);
+  });
+}
+function maxZ(){ return state.items.reduce(function(m, i){ return Math.max(m, i.z); }, 0); }
+function nextY(){
+  var S = state.settings;
+  if (!state.items.length) return S.margin;
+  var bottom = state.items.reduce(function(m, i){ return Math.max(m, i.y + i.h); }, 0);
+  return mm(bottom + S.gap);
+}
+function addPhotoToCanvas(p){
+  var S = state.settings;
+  var w = S.collarWidth - S.margin * 2;
+  var h = mm(w * p.h / p.w);
+  var y = nextY();
+  var item = { id: "i" + (uid++), type: "photo", photoId: p.id, name: p.name,
+    x: S.margin, y: y, w: w, h: h, rotation: 0, z: maxZ() + 1,
+    shape: "rect", radius: 0, border: 0, frame: 0,
+    cropZoom: 1, cropX: 0, cropY: 0, adj: p.pendingAdj ? JSON.parse(JSON.stringify(p.pendingAdj)) : defaultAdj(), locked: false, hidden: false };
+  state.items.push(item);
+  if (y + h + S.margin > S.collarHeight){
+    S.collarHeight = mm(y + h + S.margin);
+    toast("El collar se alargó a " + S.collarHeight + " mm para que entre la foto.");
+  }
+  pushHistory("Foto agregada al collar");
+  selectItem(item.id); renderRight();
+}
+function addElement(type){
+  var S = state.settings, y = nextY();
+  var base = { id: "i" + (uid++), type: type, x: S.margin, y: Math.min(y, S.collarHeight - 12), rotation: 0, z: maxZ() + 1, locked: false, hidden: false };
+  if (type === "text"){ base.name = "Texto"; base.text = "Texto"; base.fontSize = 5; base.bold = false; base.align = "left"; base.fontFamily = ""; base.w = S.collarWidth - S.margin * 2; base.h = 10; }
+  if (type === "rect"){ base.name = "Rectángulo"; base.w = 18; base.h = 12; }
+  if (type === "circle"){ base.name = "Círculo"; var dm = Math.min(20, S.collarWidth - S.margin * 2); base.w = dm; base.h = dm; }
+  if (type === "line"){ base.name = "Línea"; base.w = S.collarWidth - S.margin * 2; base.h = 3; }
+  state.items.push(base);
+  pushHistory("Elemento agregado");
+  selectItem(base.id); renderRight();
+}
+function deleteItem(id){
+  state.items = state.items.filter(function(i){ return i.id !== id; });
+  if (state.selectedId === id) state.selectedId = null;
+  pushHistory("Elemento eliminado"); renderItems(); renderRight();
+}
+function duplicateItem(item){
+  var c = JSON.parse(JSON.stringify(item));
+  c.id = "i" + (uid++); c.x = mm(c.x + 3); c.y = mm(c.y + 3); c.z = maxZ() + 1; c.name = item.name + " copia";
+  state.items.push(c);
+  pushHistory("Elemento duplicado"); selectItem(c.id); renderRight();
+}
+/* ---------------- Plantillas ---------------- */
+function applyTemplate(name){
+  var photos = state.items.filter(function(i){ return i.type === "photo"; }).sort(function(a, b){ return a.z - b.z; });
+  if (!photos.length){ toast("Primero agregá fotografías al collar para aplicar una plantilla."); return; }
+  var S = state.settings;
+  photos.forEach(function(it){ it.rotation = 0; it.frame = 0; it.radius = 0; });
+  if (name === "clasico" || name === "vintage"){
+    var y = S.margin;
+    photos.forEach(function(it){
+      if (name === "vintage") it.frame = 2.5;
+      var photo = photoById(it.photoId);
+      it.w = S.collarWidth - S.margin * 2; it.x = S.margin;
+      it.h = mm(it.w * photo.h / photo.w) + (name === "vintage" ? 5 : 0);
+      it.y = y; y = mm(y + it.h + S.gap);
+    });
+    S.collarHeight = mm(y - S.gap + S.margin);
+  } else if (name === "libre"){
+    var colW = (S.collarWidth - S.margin * 2 - S.gap) / 2, ys = [S.margin, S.margin], col = 0;
+    photos.forEach(function(it, idx){
+      var photo = photoById(it.photoId);
+      var f = [1, 0.82, 0.92, 0.75][idx % 4];
+      it.w = mm(colW * (col === 0 ? 1 : f + 0.15)); it.w = Math.min(it.w, colW);
+      it.h = mm(it.w * photo.h / photo.w);
+      it.x = mm(S.margin + col * (colW + S.gap) + (idx % 3 === 2 ? 1.5 : 0));
+      it.y = ys[col]; ys[col] = mm(ys[col] + it.h + S.gap);
+      col = ys[0] <= ys[1] ? 0 : 1;
+    });
+    S.collarHeight = mm(Math.max(ys[0], ys[1]) - S.gap + S.margin);
+  } else if (name === "editorial"){
+    var y2 = S.margin + 2, fullW = S.collarWidth - S.margin * 2;
+    var hw = (fullW - S.gap) / 2, i2 = 0;
+    while (i2 < photos.length){
+      var it2 = photos[i2], ph = photoById(it2.photoId);
+      if (i2 % 3 === 2 && photos[i2 + 1]){
+        var itB = photos[i2 + 1];
+        var hA = mm(hw * ph.h / ph.w);
+        it2.w = hw; it2.h = hA; it2.x = S.margin; it2.y = y2;
+        itB.w = hw; itB.h = hA; itB.x = mm(S.margin + hw + S.gap); itB.y = y2;
+        y2 = mm(y2 + hA + S.gap + 2); i2 += 2;
+      } else {
+        it2.w = fullW; it2.x = S.margin; it2.h = mm(fullW * ph.h / ph.w); it2.y = y2;
+        y2 = mm(y2 + it2.h + S.gap + 2); i2 += 1;
+      }
+    }
+    S.collarHeight = mm(y2 - S.gap - 2 + S.margin);
+  }
+  pushHistory("Plantilla aplicada");
+  state.selectedId = null; fullRender();
+  toast("Plantilla aplicada. Podés seguir acomodando todo libremente.");
+}
+/* ============================================================
+   Panel derecho — contextual según selección
+   ============================================================ */
+function slider(label, val, min, max, step, fmt, oninput, onchange){
+  var wrap = document.createElement("div"); wrap.className = "field";
+  var lab = document.createElement("label");
+  var nm = document.createElement("span"); nm.textContent = label;
+  var out = document.createElement("output"); out.textContent = fmt(val);
+  lab.appendChild(nm); lab.appendChild(out);
+  var r = document.createElement("input"); r.type = "range";
+  r.min = min; r.max = max; r.step = step; r.value = val;
+  r.addEventListener("input", function(){ out.textContent = fmt(parseFloat(r.value)); oninput(parseFloat(r.value)); });
+  if (onchange) r.addEventListener("change", function(){ onchange(parseFloat(r.value)); });
+  wrap.appendChild(lab); wrap.appendChild(r);
+  return wrap;
+}
+function numField(label, val, step, onchange, suffix){
+  var wrap = document.createElement("div"); wrap.className = "field";
+  var sp = document.createElement("span"); sp.textContent = label + (suffix ? " (" + suffix + ")" : "");
+  var inp = document.createElement("input"); inp.type = "number"; inp.className = "num-in"; inp.value = val; inp.step = step || 0.5;
+  inp.addEventListener("change", function(){ var v = parseFloat(inp.value); if (!isNaN(v)) onchange(v); });
+  wrap.appendChild(sp); wrap.appendChild(inp);
+  return wrap;
+}
+function sec(title, icon, sub){
+  var s = document.createElement("section"); s.className = "rp-sec";
+  var h = document.createElement("h3");
+  h.innerHTML = '<svg class="ic" viewBox="0 0 24 24">' + icon + '</svg>';
+  h.appendChild(document.createTextNode(title));
+  s.appendChild(h);
+  if (sub){ var p = document.createElement("p"); p.className = "sub"; p.textContent = sub; s.appendChild(p); }
+  return s;
+}
+function switchRow(label, val, onchange){
+  var row = document.createElement("div"); row.className = "switch-row";
+  var sp = document.createElement("span"); sp.textContent = label;
+  var sw = document.createElement("label"); sw.className = "switch";
+  var inp = document.createElement("input"); inp.type = "checkbox"; inp.checked = !!val;
+  var i = document.createElement("i");
+  inp.addEventListener("change", function(){ onchange(inp.checked); });
+  sw.appendChild(inp); sw.appendChild(i);
+  row.appendChild(sp); row.appendChild(sw);
+  return row;
+}
+function btnRow(buttons){
+  var row = document.createElement("div"); row.className = "btn-row";
+  buttons.forEach(function(b){
+    var btn = document.createElement("button"); btn.className = "btn sm" + (b.danger ? " danger" : "");
+    btn.textContent = b.label; btn.addEventListener("click", b.fn); row.appendChild(btn);
+  });
+  return row;
+}
+function renderRight(){
+  var rp = $("#rightPanel"); rp.innerHTML = "";
+  var item = selected();
+  if (!item){ renderCanvasPanel(rp); return; }
+  if (item.type === "photo") renderPhotoPanel(rp, item);
+  else if (item.type === "text") renderTextPanel(rp, item);
+  else renderShapePanel(rp, item);
+}
+function positionSection(item){
+  var s = sec("Posición y tamaño", '<path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>');
+  var g = document.createElement("div"); g.className = "grid2";
+  g.appendChild(numField("X", item.x, 0.5, function(v){ item.x = mm(v); pushHistory("Posición cambiada"); renderItems(); }));
+  g.appendChild(numField("Y", item.y, 0.5, function(v){ item.y = mm(v); pushHistory("Posición cambiada"); renderItems(); }));
+  g.appendChild(numField("Ancho", item.w, 0.5, function(v){ item.w = mm(Math.max(4, v)); pushHistory("Tamaño cambiado"); renderItems(); refreshPhotoPreviews(); }));
+  g.appendChild(numField("Alto", item.h, 0.5, function(v){ item.h = mm(Math.max(4, v)); pushHistory("Tamaño cambiado"); renderItems(); refreshPhotoPreviews(); }));
+  s.appendChild(g);
+  s.appendChild(slider("Rotación", item.rotation || 0, -180, 180, 1, function(v){ return v + "°"; },
+    function(v){ item.rotation = Math.round(v); renderItems(); },
+    function(){ pushHistory("Foto rotada"); }));
+  return s;
+}
+function commonActions(item){
+  var s = sec("Elemento", '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>');
+  s.appendChild(btnRow([
+    { label: "Duplicar", fn: function(){ duplicateItem(item); } },
+    { label: item.locked ? "Desbloquear" : "Bloquear", fn: function(){ item.locked = !item.locked; pushHistory("Bloqueo cambiado"); renderItems(); renderRight(); } },
+    { label: "Eliminar", danger: true, fn: function(){ deleteItem(item.id); } }
+  ]));
+  var s2 = sec("Alinear en el collar", '<path d="M4 4v16M4 12h9M4 7h13M4 17h13"/>');
+  s2.appendChild(btnRow([
+    { label: "Izquierda", fn: function(){ item.x = state.settings.margin; pushHistory("Alineado"); renderItems(); } },
+    { label: "Centro", fn: function(){ item.x = mm((state.settings.collarWidth - item.w) / 2); pushHistory("Alineado"); renderItems(); } },
+    { label: "Derecha", fn: function(){ item.x = mm(state.settings.collarWidth - state.settings.margin - item.w); pushHistory("Alineado"); renderItems(); } }
+  ]));
+  var wrap = document.createDocumentFragment(); wrap.appendChild(s); wrap.appendChild(s2);
+  return wrap;
+}
+/* ---------- Fase 2: histograma, curvas, detalle y fondo ---------- */
+var histTimer = null;
+function drawHistogram(item){
+  var cv = document.getElementById("histoCanvas"); if (!cv || !item) return;
+  var meta = document.getElementById("histoMeta");
+  var small = renderPhotoCanvas(item, true, 220); if (!small) return;
+  var ctx = small.getContext("2d"), data;
+  try { data = ctx.getImageData(0,0,small.width,small.height).data; } catch(e){ return; }
+  var bins = new Float32Array(256), total = 0, sum = 0, clipB = 0, clipW = 0;
+  for (var i=0;i<data.length;i+=4){
+    if (data[i+3]===0) continue;
+    var v = data[i]; bins[v]++; total++; sum+=v;
+    if (v<=2) clipB++; if (v>=253) clipW++;
+  }
+  if (!total) return;
+  var c = cv.getContext("2d"), W=cv.width, H=cv.height;
+  c.clearRect(0,0,W,H);
+  c.fillStyle="#101216"; c.fillRect(0,0,W,H);
+  c.strokeStyle="rgba(255,255,255,.08)"; c.lineWidth=1;
+  for (var gx=1; gx<4; gx++){ c.beginPath(); c.moveTo(W*gx/4,0); c.lineTo(W*gx/4,H); c.stroke(); }
+  var max=0; for (var b=0;b<256;b++) if (bins[b]>max) max=bins[b];
+  c.fillStyle="#d7dce3";
+  for (var x=0;x<256;x++){
+    var bh = Math.pow(bins[x]/max, 0.55) * (H-14);
+    c.fillRect(x/255*(W-2)+1, H-bh, Math.max(1,W/256-0.4), bh);
+  }
+  function mark(val, col){
+    var mx = val/255*(W-2)+1;
+    c.strokeStyle=col; c.lineWidth=2; c.beginPath(); c.moveTo(mx,0); c.lineTo(mx,H); c.stroke();
+    c.fillStyle=col; c.beginPath(); c.moveTo(mx-5,0); c.lineTo(mx+5,0); c.lineTo(mx,8); c.closePath(); c.fill();
+  }
+  mark(item.adj.blackPoint||0, "#ff6a2b"); mark(item.adj.whitePoint===undefined?255:item.adj.whitePoint, "#5aa2ff");
+  if (meta) meta.innerHTML = "<span>Media " + Math.round(sum/total) + "</span><span>Negros recortados " + (clipB/total*100).toFixed(1) + "%</span><span>Blancos " + (clipW/total*100).toFixed(1) + "%</span>";
+}
+function scheduleHistogram(){
+  clearTimeout(histTimer);
+  histTimer = setTimeout(function(){
+    var it = selected(); if (it && it.type==="photo") drawHistogram(it);
+  }, 90);
+}
+function autoLevels(item){
+  var saved = { bp:item.adj.blackPoint, wp:item.adj.whitePoint, lg:item.adj.levelsGamma, cv:item.adj.curve.slice() };
+  item.adj.blackPoint=0; item.adj.whitePoint=255; item.adj.levelsGamma=1; item.adj.curve=[0,64,128,192,255];
+  var small = renderPhotoCanvas(item, true, 220);
+  item.adj.blackPoint=saved.bp; item.adj.whitePoint=saved.wp; item.adj.levelsGamma=saved.lg; item.adj.curve=saved.cv;
+  if (!small) return;
+  var data = small.getContext("2d").getImageData(0,0,small.width,small.height).data;
+  var bins=new Float32Array(256), total=0;
+  for (var i=0;i<data.length;i+=4){ if (data[i+3]===0) continue; bins[data[i]]++; total++; }
+  if (!total) return;
+  var lo=0, hi=255, acc=0;
+  for (var v=0;v<256;v++){ acc+=bins[v]; if (acc/total>=0.01){ lo=v; break; } }
+  acc=0;
+  for (var v2=255;v2>=0;v2--){ acc+=bins[v2]; if (acc/total>=0.01){ hi=v2; break; } }
+  if (hi-lo<20){ toast("La foto ya usa casi todo el rango tonal."); return; }
+  item.adj.blackPoint=lo; item.adj.whitePoint=hi;
+  pushHistory("Niveles automáticos");
+  renderRight(); refreshPhotoPreviews(); refreshThermalSize();
+  toast("Niveles automáticos: negro en " + lo + ", blanco en " + hi + ".");
+}
+/* ---------- Fase 3: mejora fotográfica asistida ---------- */
+var prevAdjByItem = {};
+function analyzePhoto(item){
+  var savedAdj = item.adj;
+  var neutral = defaultAdj();
+  /* conservar recorte/canales base para medir la foto tal como se ve encuadrada */
+  neutral.cropKeep = true;
+  item.adj = neutral;
+  var small = renderPhotoCanvas(item, true, 220);
+  item.adj = savedAdj;
+  if (!small) return null;
+  var data = small.getContext("2d").getImageData(0,0,small.width,small.height).data;
+  var bins = new Float32Array(256), total=0, sum=0, sum2=0;
+  for (var i=0;i<data.length;i+=4){ if (data[i+3]===0) continue; var v=data[i]; bins[v]++; total++; sum+=v; sum2+=v*v; }
+  if (!total) return null;
+  var mean = sum/total, std = Math.sqrt(Math.max(0, sum2/total - mean*mean));
+  var lo=0, hi=255, acc=0;
+  for (var a=0;a<256;a++){ acc+=bins[a]; if (acc/total>=0.01){ lo=a; break; } }
+  acc=0; for (var b=255;b>=0;b--){ acc+=bins[b]; if (acc/total>=0.01){ hi=b; break; } }
+  /* nitidez percibida: diferencia media con el vecino de la derecha */
+  var w=small.width, edge=0, en=0;
+  for (var y=0;y<small.height;y++) for (var x=0;x<w-1;x++){ var j=(y*w+x)*4; if (data[j+3]===0) continue; edge+=Math.abs(data[j]-data[j+4]); en++; }
+  return { mean:mean, std:std, lo:lo, hi:hi, edge: en?edge/en:0 };
+}
+function autoEnhancePhoto(item, silent){
+  ensureAdj(item);
+  var an = analyzePhoto(item); if (!an){ if(!silent) toast("No se pudo analizar la foto."); return false; }
+  prevAdjByItem[item.id] = JSON.parse(JSON.stringify(item.adj));
+  var adj = item.adj;
+  adj.brightness = clamp(Math.round((126 - an.mean) * 0.32), -45, 45);
+  adj.exposure = clamp(Math.round((128 - an.mean) * 0.14), -25, 25);
+  adj.contrast = clamp(Math.round((56 - an.std) * 0.75), -15, 55);
+  if (an.hi - an.lo > 24){ adj.blackPoint = Math.round(an.lo * 0.75); adj.whitePoint = Math.round(255 - (255 - an.hi) * 0.75); }
+  adj.levelsGamma = clamp(Math.round((an.mean < 110 ? 0.88 : an.mean > 150 ? 1.12 : 1) * 100)/100, 0.7, 1.4);
+  adj.gamma = clamp(Math.round((an.mean < 110 ? 0.92 : 1) * 100)/100, 0.8, 1.2);
+  adj.shadows = an.mean < 115 ? 18 : 6;
+  adj.highlights = an.mean > 145 ? -12 : 0;
+  adj.sharpness = an.edge < 6 ? 68 : an.edge < 11 ? 50 : 32;
+  adj.sharpRadius = an.edge < 6 ? 1.5 : 1;
+  adj.sharpThreshold = 4;
+  adj.denoise = an.std > 62 && an.edge < 7 ? 28 : 12;
+  adj.denoiseDetail = 68;
+  adj.autoEnhanced = true;
+  if (!silent){
+    pushHistory("Mejora automática");
+    renderRight(); refreshPhotoPreviews(); refreshThermalSize(); scheduleHistogram();
+    toast("Mejora automática aplicada: brillo " + adj.brightness + ", contraste " + adj.contrast + ", nitidez " + adj.sharpness + ". Ajustá cualquier control para afinarla, o revertila desde Mejora asistida.");
+  }
+  return true;
+}
+function revertAutoEnhance(item){
+  var prev = prevAdjByItem[item.id];
+  if (!prev){ toast("No hay una mejora automática para revertir en esta foto."); return; }
+  item.adj = prev; delete prevAdjByItem[item.id];
+  pushHistory("Mejora automática revertida");
+  renderRight(); refreshPhotoPreviews(); refreshThermalSize();
+  toast("Se restauraron los ajustes anteriores a la mejora automática.");
+}
+function histogramSection(item, live, done){
+  var adj=item.adj;
+  var s=sec("Histograma y niveles", '<path d="M3 20h18M6 20v-6M10 20V8M14 20v-9M18 20V4"/>', "Histograma en vivo de esta foto ya procesada en monocromo. El marcador naranja es el punto negro y el azul, el punto blanco.");
+  var wrap=document.createElement("div"); wrap.className="histo-wrap";
+  var cv=document.createElement("canvas"); cv.id="histoCanvas"; cv.width=520; cv.height=168;
+  var meta=document.createElement("div"); meta.className="histo-meta"; meta.id="histoMeta"; meta.textContent="Calculando…";
+  wrap.appendChild(cv); wrap.appendChild(meta); s.appendChild(wrap);
+  s.appendChild(slider("Nivel de negro", adj.blackPoint, 0, 200, 1, function(v){return v;}, function(v){ adj.blackPoint=Math.min(v, (adj.whitePoint||255)-8); live(); scheduleHistogram(); }, done));
+  s.appendChild(slider("Nivel de blanco", adj.whitePoint, 55, 255, 1, function(v){return v;}, function(v){ adj.whitePoint=Math.max(v, (adj.blackPoint||0)+8); live(); scheduleHistogram(); }, done));
+  s.appendChild(slider("Gamma de niveles (medios tonos)", adj.levelsGamma||1, 0.3, 2.5, 0.01, function(v){return v.toFixed(2);}, function(v){ adj.levelsGamma=v; live(); scheduleHistogram(); }, done));
+  s.appendChild(btnRow([{label:"Niveles automáticos (1%–99%)", fn:function(){ autoLevels(item); }}]));
+  setTimeout(function(){ drawHistogram(item); }, 40);
+  return s;
+}
+function curveSection(item, live, done){
+  var adj=item.adj;
+  var s=sec("Curvas de tonalidad", '<path d="M4 20C8 20 9 12 12 12s4-8 8-8"/><path d="M3 3v18h18"/>', "Arrastrá los 5 puntos: subir aclara esos tonos, bajar los oscurece. La curva se aplica después de los niveles, solo a esta foto.");
+  var wrap=document.createElement("div"); wrap.className="curve-wrap";
+  var cv=document.createElement("canvas"); cv.width=520; cv.height=380;
+  wrap.appendChild(cv); s.appendChild(wrap);
+  var hint=document.createElement("p"); hint.className="curve-hint"; hint.textContent="Puntos de izquierda a derecha: negros, sombras, medios, luces y blancos."; s.appendChild(hint);
+  var dragPt=-1;
+  function drawCurve(){
+    var c=cv.getContext("2d"), W=cv.width, H=cv.height, pad=26;
+    c.clearRect(0,0,W,H); c.fillStyle="#101216"; c.fillRect(0,0,W,H);
+    c.strokeStyle="rgba(255,255,255,.09)"; c.lineWidth=1;
+    for (var g=0; g<=4; g++){ var gx=pad+g*(W-2*pad)/4, gy=pad+g*(H-2*pad)/4; c.beginPath(); c.moveTo(gx,pad); c.lineTo(gx,H-pad); c.stroke(); c.beginPath(); c.moveTo(pad,gy); c.lineTo(W-pad,gy); c.stroke(); }
+    c.strokeStyle="rgba(255,255,255,.22)"; c.setLineDash([5,5]); c.beginPath(); c.moveTo(pad,H-pad); c.lineTo(W-pad,pad); c.stroke(); c.setLineDash([]);
+    var lut=buildCurveLUT(adj.curve);
+    c.strokeStyle="#ffb25e"; c.lineWidth=3; c.beginPath();
+    for (var x=0;x<256;x++){ var px=pad+x/255*(W-2*pad), py=H-pad-lut[x]/255*(H-2*pad); if (x===0) c.moveTo(px,py); else c.lineTo(px,py); }
+    c.stroke();
+    var xs=[0,64,128,192,255];
+    for (var k=0;k<5;k++){
+      var px2=pad+xs[k]/255*(W-2*pad), py2=H-pad-adj.curve[k]/255*(H-2*pad);
+      c.fillStyle="#ff6a2b"; c.strokeStyle="#fff"; c.lineWidth=2;
+      c.beginPath(); c.arc(px2,py2, k===dragPt?11:9, 0, Math.PI*2); c.fill(); c.stroke();
+    }
+  }
+  function ptFromEvent(e){
+    var r=cv.getBoundingClientRect(), pad=26;
+    var px=(e.clientX-r.left)/r.width*cv.width, py=(e.clientY-r.top)/r.height*cv.height;
+    var xs=[0,64,128,192,255], best=-1, bd=1e9;
+    for (var k=0;k<5;k++){
+      var cx=pad+xs[k]/255*(cv.width-2*pad), cy=cv.height-pad-adj.curve[k]/255*(cv.height-2*pad);
+      var d=Math.pow(px-cx,2)+Math.pow(py-cy,2); if (d<bd){ bd=d; best=k; }
+    }
+    return { idx:best, py:py, pad:pad };
+  }
+  cv.addEventListener("pointerdown", function(e){ var p=ptFromEvent(e); dragPt=p.idx; cv.setPointerCapture(e.pointerId); moveCurve(e); });
+  function moveCurve(e){
+    if (dragPt<0) return;
+    var r=cv.getBoundingClientRect(), pad=26;
+    var py=(e.clientY-r.top)/r.height*cv.height;
+    var val=Math.round(255-(py-pad)/(cv.height-2*pad)*255);
+    adj.curve[dragPt]=clamp(val,0,255);
+    drawCurve(); live(); scheduleHistogram();
+  }
+  cv.addEventListener("pointermove", moveCurve);
+  cv.addEventListener("pointerup", function(){ if (dragPt>=0){ dragPt=-1; drawCurve(); done(); } });
+  function preset(name, arr){ return { label:name, fn:function(){ adj.curve=arr.slice(); pushHistory("Curva: "+name); drawCurve(); live(); refreshThermalSize(); scheduleHistogram(); } }; }
+  s.appendChild(btnRow([
+    preset("Lineal", [0,64,128,192,255]),
+    preset("Contraste en S", [0,44,128,212,255]),
+    preset("S suave", [0,54,128,202,255]),
+    preset("Aclarar sombras", [12,96,150,205,255]),
+    preset("Oscurecer luces", [0,50,106,160,238])
+  ]));
+  setTimeout(drawCurve, 20);
+  return s;
+}
+function detailSection(item, live, done){
+  var adj=item.adj;
+  var s=sec("Nitidez avanzada y reducción de ruido", '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>', "La cantidad de enfoque es el control Nitidez de Ajustes de imagen. Acá se afina cómo se aplica y cuánto ruido se limpia antes del tramado: menos ruido = tramado más limpio en tu impresora.");
+  s.appendChild(slider("Radio de enfoque", adj.sharpRadius||1, 0.5, 3, 0.5, function(v){return v.toFixed(1)+" px";}, function(v){ adj.sharpRadius=v; live(); }, done));
+  s.appendChild(slider("Umbral de enfoque", adj.sharpThreshold||0, 0, 20, 1, function(v){return v;}, function(v){ adj.sharpThreshold=v; live(); }, done));
+  s.appendChild(slider("Reducción de ruido", adj.denoise||0, 0, 100, 1, function(v){return v;}, function(v){ adj.denoise=v; live(); }, done));
+  s.appendChild(slider("Preservar detalle", adj.denoiseDetail===undefined?65:adj.denoiseDetail, 0, 100, 1, function(v){return v+"%";}, function(v){ adj.denoiseDetail=v; live(); }, done));
+  function dPreset(name, vals){ return { label:name, fn:function(){ Object.assign(adj, vals); pushHistory(name); renderRight(); live(); refreshThermalSize(); } }; }
+  s.appendChild(btnRow([
+    dPreset("Retrato suave", { sharpness:35, sharpRadius:1, sharpThreshold:5, denoise:30, denoiseDetail:75 }),
+    dPreset("Detalle fino", { sharpness:75, sharpRadius:0.5, sharpThreshold:2, denoise:10, denoiseDetail:60 }),
+    dPreset("Foto ruidosa", { sharpness:45, sharpRadius:1.5, sharpThreshold:6, denoise:65, denoiseDetail:55 })
+  ]));
+  return s;
+}
+function bgSection(item, live, done){
+  var adj=item.adj;
+  var s=sec("Eliminación de fondo", '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/>', "Todo local, sin subir la foto. La mejorada (Fase 3) muestrea todo el borde, elimina solo el fondo conectado al borde —no los colores iguales dentro del sujeto— y refina el contorno. La simple (Fase 2) usa solo las esquinas.");
+  s.appendChild(switchRow("Eliminar fondo de esta foto", adj.bgRemove, function(v){ adj.bgRemove=v; pushHistory(v?"Fondo eliminado":"Fondo restaurado"); renderItems(); renderRight(); refreshThermalSize(); }));
+  if (adj.bgRemove){
+    var mf=document.createElement("div"); mf.className="field"; mf.innerHTML="<span>Modo</span>";
+    var selM=document.createElement("select"); selM.className="sel-in";
+    selM.innerHTML='<option value="mejorada">Mejorada · borde conectado + refinado (Fase 3)</option><option value="simple">Simple · color de esquinas (Fase 2)</option>';
+    selM.value = adj.bgMode || "mejorada";
+    selM.addEventListener("change", function(){ adj.bgMode=selM.value; pushHistory("Modo de fondo: "+selM.value); live(); refreshThermalSize(); });
+    mf.appendChild(selM); s.appendChild(mf);
+    s.appendChild(slider("Tolerancia de color", adj.bgTolerance, 5, 80, 1, function(v){return v;}, function(v){ adj.bgTolerance=v; live(); }, done));
+    s.appendChild(slider("Suavizado del borde", adj.bgFeather, 0, 20, 1, function(v){return v;}, function(v){ adj.bgFeather=v; live(); }, done));
+    if ((adj.bgMode||"mejorada")==="mejorada"){
+      s.appendChild(slider("Refinado de bordes", adj.bgRefine===undefined?55:adj.bgRefine, 0, 100, 1, function(v){return v+"%";}, function(v){ adj.bgRefine=v; live(); }, done));
+      s.appendChild(slider("Contraer recorte (saca el halo)", adj.bgShrink===undefined?1:adj.bgShrink, 0, 3, 1, function(v){return v+" px";}, function(v){ adj.bgShrink=v; live(); }, done));
+    }
+    var note=document.createElement("div"); note.className="profile-note";
+    note.textContent="En Diseño lo eliminado se ve con damero; en Mono y Térmica esa zona queda blanca (sin tinta). Si queda un borde claro alrededor del sujeto, subí «Contraer recorte»; si se come pelo o bordes finos, bajá tolerancia y refinado.";
+    s.appendChild(note);
+  }
+  return s;
+}
+function renderPhotoPanel(rp, item){
+  ensureAdj(item);
+  var photo = photoById(item.photoId);
+  var head = document.createElement("div"); head.className = "rp-head";
+  var im = document.createElement("img"); im.className = "thumb"; im.src = photo ? photo.dataURL : ""; im.alt = "";
+  var tx = document.createElement("div"); tx.style.minWidth = "0";
+  var nm = document.createElement("div"); nm.className = "nm"; nm.textContent = item.name;
+  var meta = document.createElement("div"); meta.className = "meta";
+  meta.textContent = photo ? (photo.w + "×" + photo.h + " px originales") : "";
+  tx.appendChild(nm); tx.appendChild(meta); head.appendChild(im); head.appendChild(tx);
+  rp.appendChild(head);
+
+  var autoSec = sec("Mejora asistida · Fase 3", '<path d="M15 4V2M15 10V8M11.5 6h-2M20.5 6h-2M17.8 3.2l1.4-1.4M17.8 8.8l1.4 1.4"/><path d="m14 13-8.5 8.5a2.1 2.1 0 0 1-3-3L11 10"/>');
+  var autoCard = document.createElement("div"); autoCard.className = "auto-card";
+  var autoB = document.createElement("b"); autoB.textContent = item.adj.autoEnhanced ? "Mejora automática aplicada a esta foto" : "Un toque: iluminación, contraste y nitidez";
+  var autoP = document.createElement("p"); autoP.textContent = "Analiza el histograma y el detalle de esta foto y propone brillo, exposición, contraste, niveles, sombras y nitidez. No es un filtro cerrado: todos los controles de abajo quedan con esos valores para que los ajustes a tu gusto.";
+  autoCard.appendChild(autoB); autoCard.appendChild(autoP);
+  var autoBtns = [
+    { label: item.adj.autoEnhanced ? "Volver a mejorar automáticamente" : "Mejora automática", fn: function(){ autoEnhancePhoto(item, false); } }
+  ];
+  if (prevAdjByItem[item.id]) autoBtns.push({ label: "Revertir mejora", fn: function(){ revertAutoEnhance(item); } });
+  autoCard.appendChild(btnRow(autoBtns));
+  autoSec.appendChild(autoCard);
+  rp.appendChild(autoSec);
+
+  rp.appendChild(positionSection(item));
+
+  var crop = sec("Recorte y forma", '<path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/>', "El recorte acerca o desplaza la foto dentro de su marco, sin tocar el archivo original.");
+  var liveC = function(){ refreshPhotoPreviews(); };
+  var doneC = function(){ pushHistory("Recorte ajustado"); refreshPhotoPreviews(); refreshThermalSize(); };
+  crop.appendChild(slider("Zoom de recorte", item.cropZoom, 1, 3, 0.01, function(v){ return Math.round(v * 100) + "%"; }, function(v){ item.cropZoom = v; liveC(); }, doneC));
+  crop.appendChild(slider("Desplazar horizontal", item.cropX, -40, 40, 1, function(v){ return v + "%"; }, function(v){ item.cropX = v; liveC(); }, doneC));
+  crop.appendChild(slider("Desplazar vertical", item.cropY, -40, 40, 1, function(v){ return v + "%"; }, function(v){ item.cropY = v; liveC(); }, doneC));
+  var sg = document.createElement("div"); sg.className = "grid2";
+  var shapeF = document.createElement("div"); shapeF.className = "field";
+  shapeF.innerHTML = "<span>Forma</span>";
+  var selS = document.createElement("select"); selS.className = "sel-in";
+  selS.innerHTML = '<option value="rect">Rectangular</option><option value="circle">Circular</option>';
+  selS.value = item.shape;
+  selS.addEventListener("change", function(){ item.shape = selS.value; pushHistory("Forma cambiada"); renderItems(); });
+  shapeF.appendChild(selS); sg.appendChild(shapeF);
+  sg.appendChild(numField("Esquinas redondeadas", item.radius || 0, 0.5, function(v){ item.radius = clamp(v, 0, 20); pushHistory("Esquinas cambiadas"); renderItems(); }, "mm"));
+  crop.appendChild(sg);
+  var g2 = document.createElement("div"); g2.className = "grid2";
+  g2.appendChild(numField("Borde negro", item.border || 0, 0.25, function(v){ item.border = clamp(v, 0, 3); pushHistory("Borde cambiado"); renderItems(); refreshThermalSize(); }, "mm"));
+  g2.appendChild(numField("Marco blanco", item.frame || 0, 0.25, function(v){ item.frame = clamp(v, 0, 6); pushHistory("Marco cambiado"); renderItems(); refreshPhotoPreviews(); }, "mm"));
+  crop.appendChild(g2);
+  rp.appendChild(crop);
+
+  var adj = item.adj;
+  var sAdj = sec("Ajustes de imagen", '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/>', "Independientes para esta foto: cambiarlos no altera ninguna otra.");
+  function live(){ refreshPhotoPreviews(); scheduleHistogram(); }
+  function done(){ pushHistory("Ajustes de foto"); refreshPhotoPreviews(); refreshThermalSize(); scheduleHistogram(); }
+  function F(v){ return (v > 0 ? "+" : "") + v; }
+  sAdj.appendChild(slider("Brillo", adj.brightness, -100, 100, 1, F, function(v){ adj.brightness = v; live(); }, done));
+  sAdj.appendChild(slider("Contraste", adj.contrast, -100, 100, 1, F, function(v){ adj.contrast = v; live(); }, done));
+  sAdj.appendChild(slider("Exposición", adj.exposure, -100, 100, 1, F, function(v){ adj.exposure = v; live(); }, done));
+  sAdj.appendChild(slider("Gamma", adj.gamma, 0.3, 2.5, 0.01, function(v){ return v.toFixed(2); }, function(v){ adj.gamma = v; live(); }, done));
+  sAdj.appendChild(slider("Sombras", adj.shadows, -100, 100, 1, F, function(v){ adj.shadows = v; live(); }, done));
+  sAdj.appendChild(slider("Iluminaciones", adj.highlights, -100, 100, 1, F, function(v){ adj.highlights = v; live(); }, done));
+  sAdj.appendChild(slider("Temperatura visual", adj.temperature, -100, 100, 1, F, function(v){ adj.temperature = v; live(); }, done));
+  sAdj.appendChild(slider("Saturación previa", adj.saturation, -100, 100, 1, F, function(v){ adj.saturation = v; live(); }, done));
+  sAdj.appendChild(slider("Nitidez", adj.sharpness, 0, 100, 1, F, function(v){ adj.sharpness = v; live(); }, done));
+  sAdj.appendChild(slider("Desenfoque", adj.blur, 0, 10, 0.1, function(v){ return v.toFixed(1); }, function(v){ adj.blur = v; live(); }, done));
+  sAdj.appendChild(switchRow("Invertir tonos", adj.invert, function(v){ adj.invert = v; pushHistory("Tonos invertidos"); live(); refreshThermalSize(); }));
+  rp.appendChild(sAdj);
+
+  var sMono = sec("Conversión monocromática", '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18Z" fill="currentColor" stroke="none"/>', "Cómo se traducen los colores originales a gris. Subir un canal aclara todo lo que tenga ese color y puede recuperar detalles que la conversión automática pierde.");
+  sMono.appendChild(slider("Canal rojo", adj.chR, 0, 100, 1, function(v){ return v + "%"; }, function(v){ adj.chR = v; live(); }, done));
+  sMono.appendChild(slider("Canal verde", adj.chG, 0, 100, 1, function(v){ return v + "%"; }, function(v){ adj.chG = v; live(); }, done));
+  sMono.appendChild(slider("Canal azul", adj.chB, 0, 100, 1, function(v){ return v + "%"; }, function(v){ adj.chB = v; live(); }, done));
+  var leg = document.createElement("div"); leg.className = "chan-legend";
+  leg.innerHTML = '<span><i class="dot" style="background:#ff5d5d"></i>Cielo y pieles reaccionan al rojo</span>';
+  sMono.appendChild(leg);
+  sMono.appendChild(btnRow([{ label: "Restablecer ajustes de esta foto", fn: function(){ item.adj = defaultAdj(); pushHistory("Ajustes restablecidos"); renderRight(); refreshPhotoPreviews(); refreshThermalSize(); } }]));
+  rp.appendChild(sMono);
+
+  rp.appendChild(histogramSection(item, live, done));
+  rp.appendChild(curveSection(item, live, done));
+  rp.appendChild(detailSection(item, live, done));
+  rp.appendChild(bgSection(item, live, done));
+
+  rp.appendChild(thermalSection());
+  rp.appendChild(commonActions(item));
+}
+function refreshPhotoPreviews(){
+  /* Re-renderiza solo los canvas de fotos visibles (la vista térmica se recalcula aparte) */
+  $all(".item").forEach(function(el){
+    var item = itemById(el.dataset.id);
+    if (!item || item.type !== "photo" || state.view === "thermal") return;
+    var old = el.querySelector("canvas");
+    var cv = renderPhotoCanvas(item, state.view === "mono");
+    if (cv && item.adj && item.adj.bgRemove && state.view === "design") cv.classList.add("checker");
+    if (cv && old) el.replaceChild(cv, old);
+    else if (cv) el.insertBefore(cv, el.firstChild);
+  });
+  if (state.view === "thermal") scheduleThermal();
+}
+function renderTextPanel(rp, item){
+  var head = document.createElement("div"); head.className = "rp-head";
+  head.innerHTML = '<div><div class="nm">Texto</div><div class="meta">Se imprime en negro puro</div></div>';
+  rp.appendChild(head);
+  rp.appendChild(positionSection(item));
+  var s = sec("Contenido y tipografía", '<path d="M4 7V5h16v2M9 20h6M12 5v15"/>');
+  var f = document.createElement("div"); f.className = "field";
+  f.innerHTML = "<span>Texto</span>";
+  var ta = document.createElement("textarea"); ta.className = "txt-in"; ta.value = item.text;
+  ta.addEventListener("input", function(){ item.text = ta.value; item.name = "Texto: " + ta.value.split("\n")[0].slice(0, 18); renderItems(); renderLayers(); });
+  ta.addEventListener("change", function(){ pushHistory("Texto editado"); refreshThermalSize(); });
+  f.appendChild(ta); s.appendChild(f);
+  s.appendChild(slider("Tamaño", item.fontSize, 2.5, 14, 0.5, function(v){ return v + " mm"; }, function(v){ item.fontSize = v; renderItems(); }, function(){ pushHistory("Tipografía cambiada"); refreshThermalSize(); }));
+  var g = document.createElement("div"); g.className = "grid2";
+  var al = document.createElement("div"); al.className = "field"; al.innerHTML = "<span>Alineación</span>";
+  var selA = document.createElement("select"); selA.className = "sel-in";
+  selA.innerHTML = '<option value="left">Izquierda</option><option value="center">Centro</option><option value="right">Derecha</option>';
+  selA.value = item.align; selA.addEventListener("change", function(){ item.align = selA.value; pushHistory("Texto alineado"); renderItems(); refreshThermalSize(); });
+  al.appendChild(selA); g.appendChild(al);
+  var ff = document.createElement("div"); ff.className = "field"; ff.innerHTML = "<span>Fuente</span>";
+  var selF = document.createElement("select"); selF.className = "sel-in";
+  selF.innerHTML = '<option value="">Sans del estudio</option><option value="IBM Plex Mono, monospace">Monoespaciada</option><option value="Georgia, serif">Serif clásica</option>';
+  selF.value = item.fontFamily || ""; selF.addEventListener("change", function(){ item.fontFamily = selF.value; pushHistory("Fuente cambiada"); renderItems(); refreshThermalSize(); });
+  ff.appendChild(selF); g.appendChild(ff);
+  s.appendChild(g);
+  s.appendChild(switchRow("Negrita", item.bold, function(v){ item.bold = v; pushHistory("Tipografía cambiada"); renderItems(); refreshThermalSize(); }));
+  rp.appendChild(s);
+  rp.appendChild(commonActions(item));
+}
+function renderShapePanel(rp, item){
+  var head = document.createElement("div"); head.className = "rp-head";
+  var nm = document.createElement("div"); nm.className = "nm"; nm.textContent = item.name;
+  head.appendChild(nm); rp.appendChild(head);
+  rp.appendChild(positionSection(item));
+  rp.appendChild(thermalSection());
+  rp.appendChild(commonActions(item));
+}
+function thermalSection(){
+  var t = state.thermal;
+  var prNow = printerById(state.settings.printer || "c9");
+  var s = sec("Motor térmico · " + prNow.name, '<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>',
+    "Se aplica al collar completo. La vista térmica muestra exactamente los píxeles que vas a exportar.");
+  var pf = document.createElement("div"); pf.className = "field";
+  pf.innerHTML = "<span>Perfil de calibración</span>";
+  var selP = document.createElement("select"); selP.className = "sel-in";
+  selP.innerHTML = '<option value="fotos">' + prNow.name + ' — Fotografías</option><option value="retratos">' + prNow.name + ' — Retratos</option><option value="dibujos">' + prNow.name + ' — Dibujos</option><option value="texto">' + prNow.name + ' — Texto</option><option value="custom">Configuración personalizada</option>';
+  selP.value = t.profile;
+  selP.addEventListener("change", function(){ applyProfile(selP.value); });
+  pf.appendChild(selP); s.appendChild(pf);
+  var mf = document.createElement("div"); mf.className = "field";
+  mf.innerHTML = "<span>Método de tramado</span>";
+  var selM = document.createElement("select"); selM.className = "sel-in";
+  ["floyd","atkinson","bayer","jarvis","threshold","pure"].forEach(function(m){
+    var o = document.createElement("option"); o.value = m; o.textContent = methodLabel(m); selM.appendChild(o);
+  });
+  selM.value = t.method;
+  selM.addEventListener("change", function(){ t.method = selM.value; t.profile = "custom"; pushHistory("Método de tramado"); renderRight(); refreshThermalSize(); updateStats(); });
+  mf.appendChild(selM); s.appendChild(mf);
+  var desc = document.createElement("p"); desc.className = "sub"; desc.textContent = methodDesc(t.method); s.appendChild(desc);
+  function tLive(){ if (state.view === "thermal") scheduleThermal(); }
+  function tDone(){ pushHistory("Motor térmico ajustado"); refreshThermalSize(); updateStats(); }
+  s.appendChild(slider("Umbral", t.threshold, 16, 240, 1, function(v){ return v; }, function(v){ t.threshold = v; tLive(); }, tDone));
+  s.appendChild(slider("Densidad de puntos", t.density, 40, 160, 1, function(v){ return v + "%"; }, function(v){ t.density = v; tLive(); }, tDone));
+  s.appendChild(slider("Contraste de impresión", t.printContrast, -60, 60, 1, function(v){ return (v > 0 ? "+" : "") + v; }, function(v){ t.printContrast = v; tLive(); }, tDone));
+  s.appendChild(slider("Gamma de impresión", t.printGamma, 0.4, 2.2, 0.01, function(v){ return v.toFixed(2); }, function(v){ t.printGamma = v; tLive(); }, tDone));
+  s.appendChild(slider("Nivel de negro", t.blackLevel, 0, 120, 1, function(v){ return v; }, function(v){ t.blackLevel = v; tLive(); }, tDone));
+  s.appendChild(switchRow("Invertir blanco / negro", t.invert, function(v){ t.invert = v; pushHistory("Inversión térmica"); refreshThermalSize(); }));
+  s.appendChild(btnRow([{ label: "Comparar los 6 tramados", fn: openComparator }]));
+  return s;
+}
+function applyProfile(p){
+  var t = state.thermal; t.profile = p;
+  if (p === "fotos") Object.assign(t, { method: "floyd", threshold: 128, density: 100, printGamma: 1.0, printContrast: 0, blackLevel: 0 });
+  if (p === "retratos") Object.assign(t, { method: "floyd", threshold: 118, density: 96, printGamma: 1.18, printContrast: -8, blackLevel: 0 });
+  if (p === "dibujos") Object.assign(t, { method: "bayer", threshold: 140, density: 108, printGamma: 0.95, printContrast: 12, blackLevel: 10 });
+  if (p === "texto") Object.assign(t, { method: "pure", threshold: 160, density: 112, printGamma: 1.0, printContrast: 18, blackLevel: 24 });
+  pushHistory("Perfil aplicado: " + profileLabel(p));
+  renderRight(); refreshThermalSize(); updateStats();
+  toast("Perfil aplicado: " + profileLabel(p) + ".");
+}
+function renderCanvasPanel(rp){
+  var S = state.settings;
+  var prNow = printerById(S.printer || "c9");
+  var head = document.createElement("div"); head.className = "rp-head";
+  head.innerHTML = '<div><div class="nm">Papel y collar</div><div class="meta">' + prNow.name + ' · rollo de ' + S.rollWidth + ' mm</div></div>';
+  rp.appendChild(head);
+  var sp = sec("Impresora térmica · Fase 3", '<path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/>', prNow.note + " Cambiar de modelo actualiza rollo, ancho imprimible, dpi y parámetros térmicos base; tu collar y tus fotos no se tocan (si el collar no entra en el rollo nuevo, se angosta al ancho imprimible).");
+  var prf = document.createElement("div"); prf.className = "field"; prf.innerHTML = "<span>Modelo de impresora</span>";
+  var selPr = document.createElement("select"); selPr.className = "sel-in";
+  PRINTERS.forEach(function(pr){ var o=document.createElement("option"); o.value=pr.id; o.textContent=pr.name+" · "+pr.roll+" mm · "+pr.dpi+" dpi"; selPr.appendChild(o); });
+  selPr.value = prNow.id;
+  selPr.addEventListener("change", function(){ applyPrinter(selPr.value, false); });
+  prf.appendChild(selPr); sp.appendChild(prf);
+  rp.appendChild(sp);
+  var s = sec("Medidas del collar", '<path d="M21.3 8.7 15.3 2.7a1 1 0 0 0-1.4 0L2.7 13.9a1 1 0 0 0 0 1.4l6 6a1 1 0 0 0 1.4 0L21.3 10a1 1 0 0 0 0-1.4ZM7.5 10.5l2 2M10.5 7.5l2 2M13.5 4.5l2 2"/>',
+    "El ancho del collar puede ser menor que el rollo: por ejemplo, una tira de 35 × 250 mm sobre papel de 57 mm.");
+  var g = document.createElement("div"); g.className = "grid2";
+  g.appendChild(numField("Ancho del collar", S.collarWidth, 1, function(v){ S.collarWidth = clamp(mm(v), 10, S.rollWidth); pushHistory("Ancho del collar"); fullRender(); }, "mm"));
+  g.appendChild(numField("Largo del collar", S.collarHeight, 1, function(v){ S.collarHeight = clamp(mm(v), 20, 1200); pushHistory("Largo del collar"); fullRender(); }, "mm"));
+  g.appendChild(numField("Ancho del rollo", S.rollWidth, 1, function(v){ S.rollWidth = clamp(mm(v), 20, 120); pushHistory("Ancho del rollo"); fullRender(); }, "mm"));
+  g.appendChild(numField("Ancho imprimible", S.printableWidth, 1, function(v){ S.printableWidth = clamp(mm(v), 10, S.rollWidth); pushHistory("Ancho imprimible"); fullRender(); }, "mm"));
+  g.appendChild(numField("Margen", S.margin, 0.5, function(v){ S.margin = clamp(mm(v), 0, 15); pushHistory("Margen cambiado"); fullRender(); }, "mm"));
+  g.appendChild(numField("Separación entre fotos", S.gap, 0.5, function(v){ S.gap = clamp(mm(v), 0, 20); pushHistory("Separación cambiada"); renderRight(); }, "mm"));
+  s.appendChild(g);
+  var of = document.createElement("div"); of.className = "field"; of.innerHTML = "<span>Orientación</span>";
+  var selO = document.createElement("select"); selO.className = "sel-in";
+  selO.innerHTML = '<option value="vertical">Vertical (tira larga)</option><option value="horizontal">Horizontal (intercambia medidas)</option>';
+  selO.value = S.orientation;
+  selO.addEventListener("change", function(){
+    S.orientation = selO.value;
+    var tmp = S.collarWidth; S.collarWidth = Math.min(S.rollWidth, S.collarHeight); S.collarHeight = tmp;
+    pushHistory("Orientación cambiada"); fullRender();
+    toast("Medidas intercambiadas para orientación " + (S.orientation === "vertical" ? "vertical" : "horizontal") + ".");
+  });
+  of.appendChild(selO); s.appendChild(of);
+  var df = document.createElement("div"); df.className = "field"; df.innerHTML = "<span>Resolución de salida</span>";
+  var selD = document.createElement("select"); selD.className = "sel-in";
+  selD.innerHTML = '<option value="203">203 dpi · 8 puntos/mm (estándar)</option><option value="300">300 dpi · alta</option><option value="304">304 dpi · PeriPage</option><option value="200">200 dpi · mini 57 mm</option>';
+  if (["203","300","304","200"].indexOf(String(S.dpi))<0){ var oD=document.createElement("option"); oD.value=String(S.dpi); oD.textContent=S.dpi+" dpi · del modelo"; selD.appendChild(oD); }
+  selD.value = String(S.dpi);
+  selD.addEventListener("change", function(){ S.dpi = parseInt(selD.value, 10); pushHistory("Resolución cambiada"); fullRender(); });
+  df.appendChild(selD); s.appendChild(df);
+  var note = document.createElement("div"); note.className = "profile-note";
+  note.textContent = "Salida actual: " + outW() + " × " + outH() + " px. La exportación no reescala ni recomprime el PNG: son los mismos píxeles de la vista térmica.";
+  s.appendChild(note);
+  if (S.collarWidth > S.printableWidth){
+    var warn = document.createElement("div"); warn.className = "profile-note"; warn.style.borderColor = "var(--warn)"; warn.style.color = "var(--warn)";
+    warn.textContent = "Atención: el collar (" + S.collarWidth + " mm) es más ancho que el área imprimible calibrada (" + S.printableWidth + " mm). La impresora recortaría los bordes.";
+    s.appendChild(warn);
+  }
+  rp.appendChild(s);
+  rp.appendChild(thermalSection());
+  var sx = sec("Exportar para Fun Print", '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    "Flujo: exportá el PNG térmico y abrilo en Fun Print para imprimir. Sin reescalados automáticos.");
+  sx.appendChild(btnRow([
+    { label: "PNG térmico", fn: function(){ doExport("thermal"); } },
+    { label: "PNG monocromo", fn: function(){ doExport("mono"); } },
+    { label: "PDF térmico · medida real", fn: function(){ doExport("pdf-thermal"); } },
+    { label: "PDF mono · medida real", fn: function(){ doExport("pdf-mono"); } },
+    { label: "Proyecto .fps", fn: function(){ doExport("fps"); } }
+  ]));
+  rp.appendChild(sx);
+}
+/* ============================================================
+   Comparador de tramados
+   ============================================================ */
+function openComparator(){
+  var item = selected();
+  if (!item || item.type !== "photo") item = state.items.filter(function(i){ return i.type === "photo"; })[0];
+  if (!item){ toast("Agregá una fotografía al collar para comparar tramados."); return; }
+  var grid = $("#cmpGrid"); grid.innerHTML = "";
+  $("#cmpSub").textContent = "«" + item.name + "» con los parámetros térmicos actuales de cada método. Tocá un resultado para usar ese método en todo el collar.";
+  var savedMethod = state.thermal.method;
+  ["floyd","atkinson","bayer","jarvis","threshold","pure"].forEach(function(m){
+    state.thermal.method = m;
+    var full = composeCanvas("thermal");
+    /* Recorte de la zona de la foto dentro del collar compuesto */
+    var ppm = pxPerMm();
+    var cx = Math.max(0, Math.round(item.x * ppm)), cy = Math.max(0, Math.round(item.y * ppm));
+    var cw = Math.min(full.width - cx, Math.round(item.w * ppm)), ch = Math.min(full.height - cy, Math.round(item.h * ppm));
+    var cell = document.createElement("button"); cell.className = "cmp-cell" + (m === savedMethod ? " on" : "");
+    var cv = document.createElement("canvas"); cv.width = Math.max(2, cw); cv.height = Math.max(2, ch);
+    cv.getContext("2d").drawImage(full, cx, cy, cw, ch, 0, 0, cw, ch);
+    var b = document.createElement("b"); b.textContent = methodLabel(m);
+    var sm = document.createElement("small"); sm.textContent = methodDesc(m);
+    cell.appendChild(cv); cell.appendChild(b); cell.appendChild(sm);
+    cell.addEventListener("click", function(){
+      state.thermal.method = m; state.thermal.profile = "custom";
+      pushHistory("Método elegido en el comparador");
+      $("#cmpOverlay").classList.remove("open");
+      renderRight(); refreshThermalSize(); updateStats();
+      toast("Método aplicado: " + methodLabel(m) + ".");
+    });
+    grid.appendChild(cell);
+  });
+  state.thermal.method = savedMethod;
+  $("#cmpOverlay").classList.add("open");
+}
+
+/* ============================================================
+   Exportación y proyectos (.fps)
+   ============================================================ */
+function downloadBlob(blob, filename){
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 800);
+}
+function fileBase(){ return (state.name || "collar").toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi, "-").replace(/^-+|-+$/g, "") || "collar"; }
+function clonePendingAdj(p){ return p && p.pendingAdj ? JSON.parse(JSON.stringify(p.pendingAdj)) : defaultAdj(); }
+/* ---------- Fase 2: generador automático de collages ---------- */
+function generateAutoCollage(){
+  if (!state.photos.length){ toast("Primero importá fotografías: el generador usa tu biblioteca de fotos."); return; }
+  var S = state.settings;
+  function num(id, def){ var el=document.getElementById(id); var v=el?parseFloat(el.value):def; return isNaN(v)?def:v; }
+  var count = clamp(Math.round(num("genCount", 6)), 1, 60);
+  var usePhotos = state.photos.slice(0, count);
+  var layout = (document.getElementById("genLayout")||{}).value || "grid";
+  var fit = (document.getElementById("genFit")||{}).value || "cover";
+  var gap = clamp(num("genGap", S.gap), 0, 20);
+  var reqW = num("genW", 0), reqH = num("genH", 0);
+  var reqCols = Math.round(num("genCols", 0));
+  var availW = S.collarWidth - S.margin * 2;
+  if (availW < 10){ toast("El collar es demasiado angosto para generar un collage."); return; }
+  /* Conservar textos y formas, reemplazar solo las fotos */
+  var kept = state.items.filter(function(i){ return i.type !== "photo"; });
+  var baseZ = kept.reduce(function(m,i){ return Math.max(m,i.z); }, 0);
+  var newItems = [];
+  var bottom = S.margin;
+  if (layout === "mosaic"){
+    var colW = (availW - gap) / 2, ys = [S.margin, S.margin], col = 0;
+    usePhotos.forEach(function(p, idx){
+      var f = [1, 0.84, 0.93, 0.76][idx % 4];
+      var w = reqW > 0 ? Math.min(reqW, availW) : mm(colW * (col === 0 ? 1 : Math.min(1, f + 0.14)));
+      var h = (reqH > 0 && fit === "cover") ? reqH : mm(w * p.h / p.w);
+      var it = { id:"i"+(uid++), type:"photo", photoId:p.id, name:p.name, x: mm(S.margin + col * (colW + gap)), y: ys[col], w: mm(w), h: mm(h), rotation:0, z: baseZ + idx + 1, shape:"rect", radius:0, border:0, frame:0, cropZoom:1, cropX:0, cropY:0, adj: clonePendingAdj(p), locked:false, hidden:false };
+      newItems.push(it); ys[col] = mm(ys[col] + h + gap);
+      col = ys[0] <= ys[1] ? 0 : 1;
+    });
+    bottom = Math.max(ys[0], ys[1]) - gap;
+  } else {
+    var cols = layout === "strips" ? 1 : (reqCols > 0 ? clamp(reqCols, 1, 6) : (reqW > 0 ? Math.max(1, Math.floor((availW + gap) / (reqW + gap))) : (usePhotos.length <= 2 ? 1 : 2)));
+    var cellW = reqW > 0 ? Math.min(reqW, availW) : mm((availW - (cols - 1) * gap) / cols);
+    /* Si el ancho pedido no llena el collar, centrar la grilla */
+    var gridW = cellW * cols + (cols - 1) * gap, x0 = mm(S.margin + Math.max(0, (availW - gridW) / 2));
+    var y = S.margin, rowH = 0;
+    usePhotos.forEach(function(p, idx){
+      var cIdx = idx % cols;
+      if (cIdx === 0 && idx > 0){ y = mm(y + rowH + gap); rowH = 0; }
+      var h = (reqH > 0 && fit === "cover") ? reqH : mm(cellW * p.h / p.w);
+      rowH = Math.max(rowH, h);
+      var it = { id:"i"+(uid++), type:"photo", photoId:p.id, name:p.name, x: mm(x0 + cIdx * (cellW + gap)), y: y, w: mm(cellW), h: mm(h), rotation:0, z: baseZ + idx + 1, shape:"rect", radius:0, border:0, frame:0, cropZoom:1, cropX:0, cropY:0, adj: clonePendingAdj(p), locked:false, hidden:false };
+      newItems.push(it);
+      if (idx === usePhotos.length - 1) bottom = mm(y + rowH);
+    });
+    if (!usePhotos.length) bottom = S.margin;
+  }
+  state.items = kept.concat(newItems);
+  S.gap = gap;
+  S.collarHeight = mm(Math.max(20, bottom + S.margin));
+  state.selectedId = newItems.length ? newItems[0].id : null;
+  pushHistory("Collage automático generado");
+  fullRender();
+  var hint = document.getElementById("genHint");
+  if (hint) hint.textContent = "Generado: " + newItems.length + " fotos · casillero " + (newItems[0] ? newItems[0].w + " × " + newItems[0].h + " mm" : "—") + " · collar " + S.collarWidth + " × " + S.collarHeight + " mm." + (count > state.photos.length ? " Solo había " + state.photos.length + " fotos importadas." : "");
+  toast("Collage generado con " + newItems.length + " fotos. Collar ajustado a " + S.collarWidth + " × " + S.collarHeight + " mm. Podés seguir editando cada foto por separado.");
+}
+/* ---------- Fase 2: PDF con medidas físicas reales ---------- */
+function buildPDFBlob(jpegBuf, imgW, imgH, pageWmm, pageHmm){
+  var wPt = (pageWmm * 72 / 25.4).toFixed(2), hPt = (pageHmm * 72 / 25.4).toFixed(2);
+  var content = "q\n" + wPt + " 0 0 " + hPt + " 0 0 cm\n/Im1 Do\nQ\n";
+  var parts = [], offsets = [], pos = 0;
+  function pushStr(s){ parts.push(s); pos += s.length; }
+  function objStart(n){ offsets[n] = pos; }
+  pushStr("%PDF-1.4\n");
+  objStart(1); pushStr("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  objStart(2); pushStr("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
+  objStart(3); pushStr("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + wPt + " " + hPt + "] /Resources << /XObject << /Im1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n");
+  objStart(4);
+  var imgHead = "4 0 obj\n<< /Type /XObject /Subtype /Image /Width " + imgW + " /Height " + imgH + " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + jpegBuf.byteLength + " >>\nstream\n";
+  pushStr(imgHead);
+  parts.push(new Uint8Array(jpegBuf)); pos += jpegBuf.byteLength;
+  pushStr("\nendstream\nendobj\n");
+  objStart(5); pushStr("5 0 obj\n<< /Length " + content.length + " >>\nstream\n" + content + "endstream\nendobj\n");
+  objStart(6); pushStr("6 0 obj\n<< /Title (FunPrint Studio collar " + pageWmm + " x " + pageHmm + " mm) /Creator (FunPrint Studio) /Producer (FunPrint Studio) >>\nendobj\n");
+  var xrefPos = pos;
+  var xref = "xref\n0 7\n0000000000 65535 f \n";
+  for (var n = 1; n <= 6; n++) xref += ("0000000000" + offsets[n]).slice(-10) + " 00000 n \n";
+  pushStr(xref);
+  pushStr("trailer\n<< /Size 7 /Root 1 0 R /Info 6 0 R >>\nstartxref\n" + xrefPos + "\n%%EOF\n");
+  return new Blob(parts, { type: "application/pdf" });
+}
+function exportPDF(mode){
+  var cv = composeCanvas(mode);
+  var S = state.settings;
+  cv.toBlob(function(blob){
+    if (!blob){ toast("No se pudo generar el PDF."); return; }
+    blob.arrayBuffer().then(function(buf){
+      var pdf = buildPDFBlob(buf, cv.width, cv.height, S.collarWidth, S.collarHeight);
+      downloadBlob(pdf, fileBase() + "-" + (mode === "thermal" ? "termico" : "mono") + ".pdf");
+      toast("PDF " + (mode === "thermal" ? "térmico" : "monocromo") + " exportado a medida real: página de " + S.collarWidth + " × " + S.collarHeight + " mm. Imprimilo al 100%, sin ajustar a página.");
+    });
+  }, "image/jpeg", 0.95);
+  $("#exportMenu").classList.remove("open");
+}
+function doExport(kind){
+  if (kind === "fps"){ saveProject(); return; }
+  if (!state.items.length){ toast("El collar está vacío: agregá al menos una fotografía para exportar."); return; }
+  if (kind === "pdf-thermal"){ exportPDF("thermal"); return; }
+  if (kind === "pdf-mono"){ exportPDF("mono"); return; }
+  var mode = kind === "jpg" ? "thermal" : kind;
+  var cv = composeCanvas(mode);
+  if (kind === "jpg"){
+    cv.toBlob(function(b){ downloadBlob(b, fileBase() + "-termico.jpg"); toast("JPG térmico exportado a " + outW() + "×" + outH() + " px."); }, "image/jpeg", 0.92);
+  } else {
+    lastThermalSize = 0;
+    cv.toBlob(function(b){
+      if (kind === "thermal") lastThermalSize = b.size;
+      downloadBlob(b, fileBase() + "-" + kind + ".png");
+      toast("PNG " + (kind === "thermal" ? "térmico" : kind === "mono" ? "monocromo" : "de diseño") + " exportado a " + outW() + "×" + outH() + " px (" + state.settings.dpi + " dpi). Listo para abrir en Fun Print.");
+      updateStats();
+    }, "image/png");
+  }
+  $("#exportMenu").classList.remove("open");
+}
+function saveProject(){
+  downloadBlob(new Blob([JSON.stringify(currentProjectData())], { type: "application/json" }), fileBase() + ".fps");
+  toast("Proyecto guardado. Abrilo cuando quieras con el botón Abrir.");
+}
+function loadProject(data){
+  if (!data || data.kind !== "fps-project"){ toast("Ese archivo no es un proyecto de FunPrint Studio."); return; }
+  var loads = data.photos.map(function(p){
+    return new Promise(function(res){
+      var img = new Image();
+      img.onload = function(){ res({ id: p.id, name: p.name, dataURL: p.dataURL, w: img.naturalWidth, h: img.naturalHeight, img: img, pendingAdj: p.pendingAdj || null }); };
+      img.onerror = function(){ res(null); };
+      img.src = p.dataURL;
+    });
+  });
+  Promise.all(loads).then(function(photos){
+    state.photos = photos.filter(Boolean);
+    state.name = data.name || "Proyecto";
+    state.settings = Object.assign(state.settings, data.settings);
+    if (!state.settings.printer) state.settings.printer = "c9";
+    var bs = document.getElementById("brandSub"); if (bs){ var prL = printerById(state.settings.printer); bs.textContent = prL.name + " · " + state.settings.rollWidth + " mm"; }
+    state.thermal = Object.assign(state.thermal, data.thermal);
+    state.items = data.items || [];
+    state.items.forEach(function(it){ if (it.type==="photo") ensureAdj(it); });
+    state.selectedId = null;
+    $("#projName").value = state.name;
+    pushHistory("Proyecto abierto");
+    fullRender();
+    toast("Proyecto «" + state.name + "» abierto con " + state.photos.length + " fotografías.");
+  });
+}
+function newProject(){
+  state.items = []; state.photos = []; state.selectedId = null;
+  state.name = "Collar sin título"; $("#projName").value = state.name;
+  state.settings.collarWidth = state.settings.printableWidth; state.settings.collarHeight = 120;
+  pushHistory("Proyecto nuevo");
+  fullRender();
+}
+
+/* ============================================================
+   Fase 3 — Procesamiento por lotes y Biblioteca de diseños
+   ============================================================ */
+function batchValues(){
+  function n(id, def){ var el=document.getElementById(id); var v=el?parseFloat(el.value):def; return isNaN(v)?def:v; }
+  var mono = (document.getElementById("batchMono")||{}).value || "keep";
+  var chans = { standard:[30,59,11], retrato:[45,40,15], paisaje:[20,55,25], detalle:[25,65,10] }[mono] || null;
+  return { brightness:n("batchBrightness",0), contrast:n("batchContrast",0), exposure:n("batchExposure",0), sharpness:n("batchSharp",35), chans:chans };
+}
+function applyAdjPatch(adj, patch){
+  adj.brightness = patch.brightness; adj.contrast = patch.contrast; adj.exposure = patch.exposure; adj.sharpness = patch.sharpness;
+  if (patch.chans){ adj.chR = patch.chans[0]; adj.chG = patch.chans[1]; adj.chB = patch.chans[2]; }
+  return adj;
+}
+function batchTargets(){
+  var scope = (document.getElementById("batchScope")||{}).value || "canvas";
+  var items = state.items.filter(function(i){ return i.type==="photo"; });
+  var out = { items:[], photos:[] };
+  if (scope==="canvas"||scope==="both") out.items = items;
+  if (scope==="imported"||scope==="both") out.photos = state.photos;
+  return out;
+}
+function applyBatch(){
+  if (!state.photos.length && !state.items.length){ toast("Primero importá fotografías para procesar por lotes."); return; }
+  var patch = batchValues(), tg = batchTargets(), count = 0;
+  tg.items.forEach(function(it){ ensureAdj(it); applyAdjPatch(it.adj, patch); count++; });
+  tg.photos.forEach(function(p){ var base = p.pendingAdj ? ensureAdj({adj:p.pendingAdj}).adj : defaultAdj(); p.pendingAdj = applyAdjPatch(base, patch); count++; });
+  /* evitar doble conteo visual: el mensaje distingue alcance */
+  pushHistory("Ajustes por lote aplicados");
+  fullRender();
+  var hint = document.getElementById("batchHint");
+  if (hint) hint.textContent = "Lote aplicado: brillo " + patch.brightness + ", contraste " + patch.contrast + ", exposición " + patch.exposure + ", nitidez " + patch.sharpness + (patch.chans ? ", monocromo " + patch.chans.join("/") : ", canales sin cambiar") + ". Alcance: " + tg.items.length + " en el collar y " + tg.photos.length + " importadas listas.";
+  toast("Lote aplicado a " + tg.items.length + " foto(s) del collar" + (tg.photos.length ? " y guardado para " + tg.photos.length + " importada(s)" : "") + ". El tramado aplicado al exportar es el del Motor térmico actual (" + methodLabel(state.thermal.method) + ").");
+}
+function batchAuto(){
+  var items = state.items.filter(function(i){ return i.type==="photo"; });
+  if (!items.length){ toast("Poné al menos una foto en el collar para la mejora automática por lote."); return; }
+  var ok = 0;
+  items.forEach(function(it){ if (autoEnhancePhoto(it, true)) ok++; });
+  state.photos.forEach(function(p){
+    /* las importadas que también están en el collar ya quedaron; las demás guardan su mejora como pendiente */
+    var inCanvas = items.some(function(it){ return it.photoId===p.id; });
+    if (!inCanvas){
+      var tmp = { id:"tmp-"+p.id, type:"photo", photoId:p.id, name:p.name, x:0,y:0,w:30,h:30, cropZoom:1,cropX:0,cropY:0, adj: p.pendingAdj?JSON.parse(JSON.stringify(p.pendingAdj)):defaultAdj() };
+      var savedItems = state.items;
+      if (autoEnhancePhoto(tmp, true)) { p.pendingAdj = tmp.adj; }
+    }
+  });
+  pushHistory("Mejora automática por lote");
+  fullRender();
+  toast("Mejora automática aplicada a " + ok + " foto(s) del collar y guardada para las importadas restantes. Cada foto conserva sus valores editables.");
+}
+function batchBg(){
+  var items = state.items.filter(function(i){ return i.type==="photo"; });
+  if (!items.length){ toast("Poné al menos una foto en el collar para eliminar fondos por lote."); return; }
+  items.forEach(function(it){ ensureAdj(it); it.adj.bgRemove = true; it.adj.bgMode = "mejorada"; if (it.adj.bgRefine===undefined) it.adj.bgRefine = 55; });
+  state.photos.forEach(function(p){ var base = p.pendingAdj || defaultAdj(); base.bgRemove = true; base.bgMode = "mejorada"; p.pendingAdj = base; });
+  pushHistory("Fondo mejorado por lote");
+  fullRender();
+  toast("Eliminación de fondo mejorada activada en " + items.length + " foto(s). Revisá cada una: tolerancia y refinado se ajustan por foto.");
+}
+function batchAddAll(){
+  if (!state.photos.length){ toast("Primero importá fotografías."); return; }
+  var present = {};
+  state.items.forEach(function(i){ if (i.type==="photo") present[i.photoId]=true; });
+  var missing = state.photos.filter(function(p){ return !present[p.id]; });
+  if (!missing.length){ toast("Todas las fotos importadas ya están en el collar."); return; }
+  missing.forEach(function(p){ addPhotoToCanvas(p); });
+  pushHistory("Collar armado con todas las fotos");
+  fullRender();
+  toast("Collar armado con " + state.photos.length + " fotos, una debajo de la otra. Exportalo como PNG/PDF térmico desde Exportar.");
+}
+function exportBatchSeparate(){
+  var items = state.items.filter(function(i){ return i.type==="photo"; }).sort(function(a,b){ return a.z-b.z; });
+  if (!items.length){ toast("Poné fotos en el collar: la exportación por foto usa sus ajustes y tamaños actuales."); return; }
+  var savedSettingsStr = JSON.stringify(state.settings);
+  var idx = 0;
+  toast("Generando " + items.length + " PNG térmicos separados…");
+  function next(){
+    if (idx >= items.length){ state.settings = JSON.parse(savedSettingsStr); fullRender(); toast("Lote exportado: " + items.length + " PNG térmicos separados, con el mismo tramado de la vista térmica."); return; }
+    var it = items[idx++];
+    /* lienzo temporal de una sola foto, a su tamaño, con su adj y el tramado global */
+    var tmpItem = JSON.parse(JSON.stringify(it)); tmpItem.x = 0; tmpItem.y = 0; tmpItem.rotation = 0;
+    var savedItems = state.items, savedSel = state.selectedId;
+    state.items = [tmpItem];
+    state.settings.collarWidth = it.w; state.settings.collarHeight = it.h;
+    var cv = composeCanvas("thermal");
+    state.items = savedItems; state.selectedId = savedSel; state.settings = JSON.parse(savedSettingsStr);
+    var name = fileBase() + "-lote-" + ("0"+idx).slice(-2) + "-" + (it.name||"foto").toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi,"-").slice(0,28) + ".png";
+    cv.toBlob(function(b){ if (b) downloadBlob(b, name); setTimeout(next, 260); }, "image/png");
+  }
+  next();
+}
+/* ---------- Biblioteca de diseños (en memoria de la sesión + export/import) ---------- */
+var library = [];
+function currentProjectData(){
+  return {
+    app: "FunPrint Studio", kind: "fps-project", version: 1,
+    name: state.name, settings: JSON.parse(JSON.stringify(state.settings)), thermal: JSON.parse(JSON.stringify(state.thermal)),
+    photos: state.photos.map(function(p){ return { id: p.id, name: p.name, dataURL: p.dataURL, w: p.w, h: p.h, pendingAdj: p.pendingAdj || null }; }),
+    items: JSON.parse(JSON.stringify(state.items))
+  };
+}
+function designThumb(){
+  try {
+    var cv = composeCanvas("design");
+    var tw = 220, th = Math.max(30, Math.round(cv.height * tw / cv.width));
+    var t = document.createElement("canvas"); t.width = tw; t.height = Math.min(th, 300);
+    t.getContext("2d").drawImage(cv, 0, 0, cv.width, Math.min(cv.height, cv.height * t.height / th || cv.height), 0, 0, tw, t.height);
+    return t.toDataURL("image/jpeg", 0.72);
+  } catch(e){ return ""; }
+}
+function saveToLibrary(){
+  if (!state.items.length){ toast("El collar está vacío: armá un diseño antes de guardarlo en la biblioteca."); return; }
+  var nameEl = document.getElementById("libName");
+  var name = (nameEl && nameEl.value.trim()) || state.name || "Diseño sin título";
+  var cat = (document.getElementById("libCategory")||{}).value || "Collares";
+  var data = currentProjectData(); data.name = name;
+  library.unshift({ id:"d"+(uid++), name:name, category:cat, created:Date.now(), thumb:designThumb(), data:data });
+  renderLibrary();
+  toast("Diseño «" + name + "» guardado en la biblioteca (" + cat + ").");
+}
+function renderLibrary(){
+  var list = document.getElementById("libList"); if (!list) return;
+  list.innerHTML = "";
+  var q = ((document.getElementById("libSearch")||{}).value || "").toLowerCase();
+  var f = (document.getElementById("libFilter")||{}).value || "";
+  var sort = (document.getElementById("libSort")||{}).value || "recent";
+  var entries = library.filter(function(e){ return (!f || e.category===f) && (!q || e.name.toLowerCase().indexOf(q)>=0); });
+  if (sort==="name") entries = entries.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+  if (sort==="size") entries = entries.slice().sort(function(a,b){ return (b.data.settings.collarHeight||0)-(a.data.settings.collarHeight||0); });
+  if (sort==="recent") entries = entries.slice().sort(function(a,b){ return b.created-a.created; });
+  document.getElementById("libEmpty").style.display = entries.length ? "none" : "block";
+  document.getElementById("libEmpty").textContent = library.length ? "Ningún diseño coincide con el filtro." : "Todavía no guardaste diseños en esta sesión.";
+  entries.forEach(function(e){
+    var card = document.createElement("div"); card.className="lib-card";
+    if (e.thumb){ var im=document.createElement("img"); im.src=e.thumb; im.alt=""; card.appendChild(im); }
+    var body=document.createElement("div"); body.className="lib-body";
+    var b=document.createElement("b"); b.textContent=e.name; body.appendChild(b);
+    var sm=document.createElement("small");
+    var d=new Date(e.created);
+    sm.textContent = e.category + " · " + e.data.settings.collarWidth + " × " + e.data.settings.collarHeight + " mm · " + (e.data.photos||[]).length + " fotos · " + ("0"+d.getDate()).slice(-2)+"/"+("0"+(d.getMonth()+1)).slice(-2)+" "+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);
+    body.appendChild(sm);
+    var acts=document.createElement("div"); acts.className="lib-actions";
+    function mk(label, fn){ var btn=document.createElement("button"); btn.className="btn"; btn.textContent=label; btn.addEventListener("click", fn); acts.appendChild(btn); }
+    mk("Abrir", function(){ loadProject(JSON.parse(JSON.stringify(e.data))); toast("Diseño «"+e.name+"» abierto desde la biblioteca."); });
+    mk("Como plantilla", function(){ applyLibraryAsTemplate(e); });
+    mk("Duplicar", function(){ var c=JSON.parse(JSON.stringify(e)); c.id="d"+(uid++); c.name=e.name+" copia"; c.created=Date.now(); library.unshift(c); renderLibrary(); toast("Diseño duplicado como «"+c.name+"»."); });
+    mk(".fps", function(){ downloadBlob(new Blob([JSON.stringify(e.data)],{type:"application/json"}), (e.name||"diseno").toLowerCase().replace(/[^a-z0-9áéíóúñ]+/gi,"-")+".fps"); });
+    mk("Borrar", function(){ library = library.filter(function(x){ return x.id!==e.id; }); renderLibrary(); toast("Diseño eliminado de la biblioteca."); });
+    body.appendChild(acts); card.appendChild(body); list.appendChild(card);
+  });
+}
+function applyLibraryAsTemplate(entry){
+  if (!state.photos.length){ toast("Importá fotos primero: la plantilla aporta posiciones y tamaños para tus fotos actuales."); return; }
+  var slots = (entry.data.items||[]).filter(function(i){ return i.type==="photo"; }).sort(function(a,b){ return a.z-b.z; });
+  if (!slots.length){ toast("Ese diseño no tiene fotos para usar como plantilla."); return; }
+  var kept = state.items.filter(function(i){ return i.type!=="photo"; });
+  var baseZ = kept.reduce(function(m,i){ return Math.max(m,i.z); }, 0);
+  var news = [];
+  state.photos.slice(0, slots.length).forEach(function(p, idx){
+    var s = slots[idx];
+    news.push({ id:"i"+(uid++), type:"photo", photoId:p.id, name:p.name, x:s.x, y:s.y, w:s.w, h:s.h, rotation:s.rotation||0, z:baseZ+idx+1, shape:s.shape||"rect", radius:s.radius||0, border:s.border||0, frame:s.frame||0, cropZoom:s.cropZoom||1, cropX:s.cropX||0, cropY:s.cropY||0, adj: clonePendingAdj(p), locked:false, hidden:false });
+  });
+  state.items = kept.concat(news);
+  state.settings.collarWidth = entry.data.settings.collarWidth; state.settings.collarHeight = entry.data.settings.collarHeight;
+  state.selectedId = news.length ? news[0].id : null;
+  pushHistory("Plantilla de biblioteca aplicada");
+  fullRender();
+  toast("Plantilla «" + entry.name + "» aplicada con " + news.length + " de tus fotos (posiciones y tamaños del diseño guardado).");
+}
+function exportLibrary(){
+  if (!library.length){ toast("La biblioteca está vacía."); return; }
+  downloadBlob(new Blob([JSON.stringify({ app:"FunPrint Studio", kind:"fps-library", version:1, designs:library })],{type:"application/json"}), "funprint-biblioteca.json");
+  toast("Biblioteca exportada con " + library.length + " diseño(s). Importala cuando quieras para recuperarlos.");
+}
+function importLibraryData(data){
+  if (!data || data.kind!=="fps-library" || !Array.isArray(data.designs)){ toast("Ese archivo no es una biblioteca de FunPrint Studio."); return; }
+  data.designs.forEach(function(e){ if (e && e.data && e.data.kind==="fps-project"){ e.id = "d"+(uid++); library.unshift(e); } });
+  renderLibrary();
+  toast("Biblioteca importada: " + library.length + " diseño(s) en total.");
+}
+
+/* ============================================================
+   Fase 4 — Impresión directa por Bluetooth (EXPERIMENTAL)
+   Web Bluetooth + raster ESC/POS. Alternativa a la exportación:
+   si la impresora no acepta este protocolo, el flujo PNG/PDF
+   para Fun Print sigue siendo el camino. Todo local.
+   ============================================================ */
+var btState = { device:null, server:null, writeChar:null, writeSvcUuid:null, writeChrUuid:null, chars:[], sending:false, lastListingText:"", attempts:0, envAvail:null };
+/* Perfiles UART BLE habituales en mini impresoras térmicas (servicio -> característica de escritura) */
+var BT_KNOWN_WRITE = {
+  "6e400002-b5a3-f393-e0a9-e50e24dcca9e": "Nordic UART",
+  "49535343-8841-43f4-a8d4-ecbe34729bb3": "ISSC (49535343-*)",
+  "0000ff02-0000-1000-8000-00805f9b34fb": "Servicio 0xFF00",
+  "0000ffe1-0000-1000-8000-00805f9b34fb": "Servicio 0xFFE0 (HM-10)",
+  "0000fff2-0000-1000-8000-00805f9b34fb": "Servicio 0xFFF0",
+  "00002af1-0000-1000-8000-00805f9b34fb": "Servicio 0x18F0"
+};
+var BT_KNOWN_SERVICES = [
+  "6e400001-b5a3-f393-e0a9-e50e24dcca9e",   /* Nordic UART */
+  "49535343-fe7d-4ae5-8fa9-9fafd205e455",   /* ISSC */
+  "0000ff00-0000-1000-8000-00805f9b34fb",
+  "0000ffe0-0000-1000-8000-00805f9b34fb",
+  "0000fff0-0000-1000-8000-00805f9b34fb",
+  "000018f0-0000-1000-8000-00805f9b34fb",
+  "0000ae30-0000-1000-8000-00805f9b34fb",
+  "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
+  "00001800-0000-1000-8000-00805f9b34fb",
+  "00001801-0000-1000-8000-00805f9b34fb",
+  "0000180a-0000-1000-8000-00805f9b34fb"
+];
+function btSleep(ms){ return new Promise(function(res){ setTimeout(res, ms); }); }
+function btSupported(){ return typeof navigator !== "undefined" && !!navigator.bluetooth; }
+/* ---------- Chequeo de entorno: por qué el navegador puede bloquear Bluetooth ---------- */
+function btEnvInfo(){
+  var embedded = false;
+  try { embedded = (window.self !== window.top); } catch(e){ embedded = true; }
+  var policy = null;
+  try {
+    var pp = document.permissionsPolicy || document.featurePolicy;
+    if (pp && typeof pp.allowsFeature === "function") policy = !!pp.allowsFeature("bluetooth");
+  } catch(e){}
+  var ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
+  var ios = /iphone|ipad|ipod/i.test(ua) || (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return {
+    supported: btSupported(),
+    secure: (typeof window !== "undefined" && "isSecureContext" in window) ? !!window.isSecureContext : null,
+    embedded: embedded,
+    policy: policy,
+    ios: ios,
+    ua: ua
+  };
+}
+function btRenderEnv(){
+  var list = document.getElementById("btEnvList"); if (!list) return;
+  var env = btEnvInfo();
+  list.innerHTML = "";
+  function add(kind, html){
+    var li = document.createElement("li"); li.className = kind;
+    var dot = document.createElement("span"); dot.className = "ed"; li.appendChild(dot);
+    var sp = document.createElement("span"); sp.innerHTML = html; li.appendChild(sp);
+    list.appendChild(li); return li;
+  }
+  if (env.ios) add("err", "<b>Web Bluetooth:</b> en iPhone/iPad no está disponible en ningún navegador (ni Safari ni Chrome). Probá en Android o en una computadora con Chrome/Edge.");
+  else if (env.supported) add("ok", "<b>Web Bluetooth:</b> disponible en este navegador.");
+  else add("err", "<b>Web Bluetooth:</b> no disponible acá (navigator.bluetooth no existe). Abrí la página en Chrome o Edge, idealmente Chrome en Android.");
+  if (env.secure === true) add("ok", "<b>Conexión segura (HTTPS):</b> sí.");
+  else if (env.secure === false) add("err", "<b>Conexión segura (HTTPS):</b> no. Web Bluetooth exige HTTPS (o localhost): esta página no está en un contexto seguro.");
+  else add("warn", "<b>Conexión segura (HTTPS):</b> no se pudo determinar.");
+  if (env.embedded) add("err", "<b>Página incrustada:</b> sí, está abierta dentro de otra página (iframe o vista interna de una app). Ese contenedor puede bloquear Bluetooth aunque estés en Chrome: abrí el enlace directamente en una pestaña de Chrome.");
+  else add("ok", "<b>Página incrustada:</b> no, está abierta como pestaña propia del navegador.");
+  if (env.policy === false) add("err", "<b>Política de permisos:</b> la página que contiene a FunPrint Studio bloquea Bluetooth (Permissions-Policy). Solo se destraba abriéndola fuera de ese contenedor, como pestaña de Chrome.");
+  else if (env.policy === true) add("ok", "<b>Política de permisos:</b> Bluetooth permitido.");
+  else add("warn", "<b>Política de permisos:</b> no se pudo determinar con las APIs disponibles.");
+  var availLi = add("warn", "<b>Bluetooth del equipo:</b> consultando…");
+  if (env.supported && typeof navigator.bluetooth.getAvailability === "function"){
+    navigator.bluetooth.getAvailability().then(function(av){
+      btState.envAvail = !!av;
+      availLi.className = av ? "ok" : "err";
+      availLi.lastChild.innerHTML = av ? "<b>Bluetooth del equipo:</b> disponible y activado." : "<b>Bluetooth del equipo:</b> no disponible o apagado. Prendé el Bluetooth del teléfono o la computadora.";
+    }, function(){ btState.envAvail = null; availLi.lastChild.innerHTML = "<b>Bluetooth del equipo:</b> no se pudo consultar su disponibilidad."; });
+  } else {
+    btState.envAvail = null;
+    availLi.lastChild.innerHTML = "<b>Bluetooth del equipo:</b> no se puede consultar sin Web Bluetooth.";
+  }
+  var advice = document.getElementById("btEnvAdvice");
+  if (advice){
+    var tips = [];
+    if (env.embedded || env.policy === false) tips.push("1) No abras la página desde dentro de Muse ni de otra app: copiá el enlace, abrí Chrome, pegalo en la barra de direcciones y entrá como pestaña normal de Chrome.");
+    if (env.secure === false) tips.push("2) Verificá que la dirección empiece con https:// — sin conexión segura el navegador bloquea Bluetooth antes de mostrar la lista de dispositivos.");
+    tips.push("En Android, además del Bluetooth, activá la Ubicación: sin ella Chrome no puede buscar dispositivos Bluetooth cercanos.");
+    tips.push("En Chrome, revisá que tenga permiso de «dispositivos cercanos» (Ajustes del teléfono → Apps → Chrome → Permisos) y que el sitio no tenga Bluetooth bloqueado (candado en la barra de direcciones → Permisos).");
+    tips.push("Tocá «Conectar impresora Bluetooth» directamente con el dedo o el mouse: el pedido tiene que salir de ese toque.");
+    advice.textContent = "Si el navegador bloquea el pedido antes de mostrar la lista de impresoras, revisá esto:\n" + tips.join("\n");
+    advice.style.display = "block";
+  }
+}
+function btNormalizeUuid(s){
+  s = String(s || "").trim().toLowerCase().replace(/^0x/, "");
+  if (/^[0-9a-f]{4}$/.test(s)) return "0000" + s + "-0000-1000-8000-00805f9b34fb";
+  if (/^[0-9a-f]{8}$/.test(s)) return s + "-0000-1000-8000-00805f9b34fb";
+  return s;
+}
+function btShortUuid(u){
+  var m = /^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/.exec(u || "");
+  return m ? "0x" + m[1].toUpperCase() : u;
+}
+function btPropsStr(p){
+  if (!p) return "";
+  var out = [];
+  if (p.read) out.push("read");
+  if (p.write) out.push("write");
+  if (p.writeWithoutResponse) out.push("writeWithoutResponse");
+  if (p.notify) out.push("notify");
+  if (p.indicate) out.push("indicate");
+  return out.join(", ") || "sin propiedades útiles";
+}
+function btIsWritable(c){ return !!(c && c.properties && (c.properties.write || c.properties.writeWithoutResponse)); }
+function btErrMsg(e){
+  if (!e) return "Error desconocido.";
+  var n = e.name || "";
+  if (n === "NotFoundError") return "No se encontró o no se eligió ninguna impresora. Prendela, acercala, cerrá Fun Print y probá de nuevo.";
+  if (n === "SecurityError") return "El navegador bloqueó el acceso a Bluetooth antes de mostrar la lista de impresoras (SecurityError). Revisá el «Chequeo del entorno» de este panel: el mensaje exacto del navegador quedó guardado en el diagnóstico, en «Error crudo».";
+  if (n === "NetworkError") return "Conexión rechazada o impresora fuera de alcance. Cerrá Fun Print (si la impresora está ocupada por otra app, rechaza la conexión), verificá que esté prendida y cerca, y reintentá.";
+  if (n === "NotSupportedError") return "Este dispositivo o navegador no soporta Web Bluetooth. Probá con Chrome o Edge, idealmente Chrome en Android.";
+  if (n === "InvalidStateError") return "La conexión Bluetooth quedó en un estado inválido. Desconectá y volvé a conectar.";
+  return (e.message || String(e));
+}
+function btSetStatus(msg, kind){
+  var box = document.getElementById("btStatus"), txt = document.getElementById("btStatusText");
+  if (!box || !txt) return;
+  box.className = "bt-status" + (kind ? " " + kind : "");
+  txt.textContent = msg;
+}
+function btSetProgress(frac){
+  var wrap = document.getElementById("btProgress"), bar = document.getElementById("btBar");
+  if (!wrap || !bar) return;
+  if (frac === null || frac === undefined){ wrap.classList.remove("show"); bar.style.width = "0"; return; }
+  wrap.classList.add("show");
+  bar.style.width = Math.round(clamp(frac, 0, 1) * 100) + "%";
+}
+function btUpdateButtons(){
+  var connected = !!(btState.device && btState.server);
+  var c = document.getElementById("btConnectBtn"), d = document.getElementById("btDisconnectBtn"),
+      t = document.getElementById("btTestBtn"), p = document.getElementById("btPrintBtn");
+  if (c) c.disabled = connected || btState.sending || !btSupported();
+  if (d) d.disabled = !btState.device || btState.sending;
+  var canPrint = connected && !!btState.writeChar && !btState.sending;
+  if (t) t.disabled = !canPrint;
+  if (p) p.disabled = !canPrint;
+}
+function btOptionalServices(){
+  var list = BT_KNOWN_SERVICES.slice();
+  var manual = btNormalizeUuid((document.getElementById("btSvcUuid") || {}).value || "");
+  if (manual && list.indexOf(manual) === -1) list.push(manual);
+  return list;
+}
+function btWriteDiag(task, sent, total, result, rawErr){
+  var ta = document.getElementById("btDiag"); if (!ta) return;
+  var env = btEnvInfo();
+  var lines = [];
+  lines.push("FunPrint Studio — Diagnóstico de impresión Bluetooth (EXPERIMENTAL)");
+  lines.push("Intento N.º: " + btState.attempts);
+  lines.push("Fecha: " + new Date().toLocaleString("es-AR"));
+  lines.push("Dispositivo: " + (btState.device ? ((btState.device.name || "sin nombre") + " · id " + btState.device.id) : "—"));
+  lines.push("Servicio de escritura: " + (btState.writeSvcUuid || "—"));
+  lines.push("Característica de escritura: " + (btState.writeChrUuid || "—"));
+  lines.push("Tarea: " + task);
+  lines.push("Bytes enviados: " + sent + " de " + total);
+  lines.push("Resultado: " + result);
+  if (rawErr){
+    lines.push("Error crudo (nombre): " + (rawErr.name || "—"));
+    lines.push("Error crudo (mensaje): " + (rawErr.message || String(rawErr)));
+  }
+  lines.push("");
+  lines.push("Entorno:");
+  lines.push("- API Web Bluetooth disponible: " + (env.supported ? "sí" : "no"));
+  lines.push("- Contexto seguro (HTTPS): " + (env.secure === null ? "no determinado" : (env.secure ? "sí" : "no")));
+  lines.push("- Protocolo: " + (typeof location !== "undefined" ? location.protocol : "—"));
+  lines.push("- Página incrustada en iframe/vista interna: " + (env.embedded ? "sí" : "no"));
+  lines.push("- Política de permisos Bluetooth: " + (env.policy === null ? "no determinada" : (env.policy ? "permitida" : "BLOQUEADA por la página contenedora")));
+  lines.push("- Bluetooth del equipo disponible: " + (btState.envAvail === null ? "no consultado" : (btState.envAvail ? "sí" : "no")));
+  lines.push("- iPhone/iPad (sin Web Bluetooth): " + (env.ios ? "sí" : "no"));
+  lines.push("- Navegador (user agent): " + (env.ua || "—"));
+  if (btState.lastListingText){ lines.push(""); lines.push("Servicios y características descubiertos:"); lines.push(btState.lastListingText); }
+  ta.value = lines.join("\n");
+}
+function btSelectChar(entry, manual){
+  if (!btIsWritable(entry.char)){
+    btSetStatus("La característica " + btShortUuid(entry.chrUuid) + " no permite escritura (propiedades: " + btPropsStr(entry.char.properties) + "), así que no sirve para imprimir. Elegí otra característica o pegá los UUID correctos.", "err");
+    return false;
+  }
+  btState.writeChar = entry.char; btState.writeSvcUuid = entry.svcUuid; btState.writeChrUuid = entry.chrUuid;
+  $all("#btGattList .gatt-chr").forEach(function(r){ r.classList.toggle("sel", r.getAttribute("data-chr") === entry.chrUuid && r.getAttribute("data-svc") === entry.svcUuid); });
+  var profile = BT_KNOWN_WRITE[entry.chrUuid];
+  btSetStatus("Característica de escritura lista: servicio " + btShortUuid(entry.svcUuid) + " · característica " + btShortUuid(entry.chrUuid) + (profile ? " (perfil " + profile + ")" : "") + (manual ? " (elegida manualmente)" : " (detección automática)") + ". Probá primero con «Prueba pequeña».", "ok");
+  btUpdateButtons();
+  return true;
+}
+function btRenderGatt(listing){
+  var box = document.getElementById("btGattList"); if (!box) return;
+  box.innerHTML = "";
+  var textLines = [];
+  if (!listing.length){
+    box.innerHTML = '<div class="gatt-empty">La impresora no devolvió ningún servicio GATT accesible. Sin un servicio escribible no se puede imprimir por esta vía: seguí exportando el PNG para Fun Print.</div>';
+    btState.lastListingText = "(sin servicios accesibles)";
+    return;
+  }
+  listing.forEach(function(entry){
+    var h = document.createElement("div"); h.className = "gatt-svc";
+    h.textContent = "Servicio " + btShortUuid(entry.svc.uuid) + (String(entry.svc.uuid) !== btShortUuid(entry.svc.uuid) ? " · " + entry.svc.uuid : "");
+    box.appendChild(h);
+    textLines.push("Servicio " + entry.svc.uuid);
+    if (!entry.chars.length){
+      var e0 = document.createElement("div"); e0.className = "gatt-empty"; e0.textContent = "Sin características accesibles en este servicio.";
+      box.appendChild(e0); textLines.push("  (sin características accesibles)");
+    }
+    entry.chars.forEach(function(c){
+      var row = document.createElement("div"); row.className = "gatt-chr";
+      row.setAttribute("data-svc", entry.svc.uuid); row.setAttribute("data-chr", c.uuid);
+      var u = document.createElement("span"); u.className = "uuid";
+      u.textContent = btShortUuid(c.uuid) + (BT_KNOWN_WRITE[c.uuid] ? " · " + BT_KNOWN_WRITE[c.uuid] : "");
+      u.title = c.uuid;
+      var pr = document.createElement("span"); pr.className = "props"; pr.textContent = btPropsStr(c.properties);
+      row.appendChild(u); row.appendChild(pr);
+      textLines.push("  Característica " + c.uuid + " [" + btPropsStr(c.properties) + "]");
+      if (btIsWritable(c)){
+        var b = document.createElement("button"); b.className = "btn sm"; b.textContent = "Usar para imprimir";
+        (function(svcUuid, chr){ b.addEventListener("click", function(){ btSelectChar({ svcUuid: svcUuid, chrUuid: chr.uuid, char: chr }, true); }); })(entry.svc.uuid, c);
+        row.appendChild(b);
+      } else {
+        var nw = document.createElement("span"); nw.className = "props"; nw.textContent = "sin escritura";
+        row.appendChild(nw);
+      }
+      box.appendChild(row);
+    });
+  });
+  btState.lastListingText = textLines.join("\n");
+}
+function btAutoPick(){
+  var pick = null, i;
+  for (i = 0; i < btState.chars.length; i++){ if (BT_KNOWN_WRITE[btState.chars[i].chrUuid] && btIsWritable(btState.chars[i].char)){ pick = btState.chars[i]; break; } }
+  if (!pick) for (i = 0; i < btState.chars.length; i++){ if (BT_KNOWN_SERVICES.indexOf(btState.chars[i].svcUuid) !== -1 && btIsWritable(btState.chars[i].char)){ pick = btState.chars[i]; break; } }
+  if (!pick) for (i = 0; i < btState.chars.length; i++){ if (btIsWritable(btState.chars[i].char)){ pick = btState.chars[i]; break; } }
+  if (pick){ btSelectChar(pick, false); return; }
+  btSetStatus("La impresora «" + ((btState.device && btState.device.name) || "sin nombre") + "» no expone ninguna característica Bluetooth con escritura: no se le puede enviar ESC/POS por esta vía. Probablemente solo acepta impresión desde su app oficial (Fun Print). El flujo de exportar el PNG e imprimir desde Fun Print sigue siendo el camino; el detalle completo quedó en el diagnóstico.", "err");
+  btWriteDiag("Detección de característica de escritura", 0, 0, "Sin característica escribible: la impresora no expone un servicio BLE compatible con ESC/POS por esta vía.");
+  btUpdateButtons();
+}
+async function btDiscover(){
+  btState.chars = []; btState.writeChar = null; btState.writeSvcUuid = null; btState.writeChrUuid = null;
+  var services;
+  try { services = await btState.server.getPrimaryServices(); }
+  catch(e){ btSetStatus("Conectó, pero no se pudieron leer los servicios GATT: " + btErrMsg(e), "err"); btUpdateButtons(); return; }
+  var listing = [];
+  for (var i = 0; i < services.length; i++){
+    var chars = [];
+    try { chars = await services[i].getCharacteristics(); } catch(e){ chars = []; }
+    listing.push({ svc: services[i], chars: chars });
+    for (var j = 0; j < chars.length; j++) btState.chars.push({ svcUuid: services[i].uuid, chrUuid: chars[j].uuid, char: chars[j] });
+  }
+  btRenderGatt(listing);
+  btAutoPick();
+}
+function btOnDisconnected(){
+  var wasSending = btState.sending;
+  btState.server = null; btState.writeChar = null; btState.writeSvcUuid = null; btState.writeChrUuid = null;
+  btSetProgress(null);
+  if (!wasSending) btSetStatus("La impresora se desconectó. Revisá que siga prendida y cerca, y volvé a conectar.", "");
+  btUpdateButtons();
+}
+async function btConnect(){
+  if (!btSupported()){ btShowUnsupported(); return; }
+  if (btState.sending) return;
+  btState.attempts++;
+  btRenderEnv();
+  btSetStatus("Abriendo el selector de Bluetooth: elegí tu impresora en la lista del navegador…", "working");
+  var device;
+  try { device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: btOptionalServices() }); }
+  catch(e){ btSetStatus(btErrMsg(e), "err"); btWriteDiag("Buscar impresora", 0, 0, "Error: " + btErrMsg(e), e); btRenderEnv(); btUpdateButtons(); return; }
+  btState.device = device;
+  device.addEventListener("gattserverdisconnected", btOnDisconnected);
+  btSetStatus("Conectando con «" + (device.name || "dispositivo sin nombre") + "»…", "working");
+  try { btState.server = await device.gatt.connect(); }
+  catch(e){ btSetStatus("Conexión rechazada: " + btErrMsg(e), "err"); btWriteDiag("Conectar", 0, 0, "Error: " + btErrMsg(e), e); btUpdateButtons(); return; }
+  btSetStatus("Conectado a «" + (device.name || "dispositivo sin nombre") + "». Buscando servicios y características GATT…", "working");
+  btUpdateButtons();
+  await btDiscover();
+}
+function btDisconnect(){
+  if (btState.device && btState.device.gatt && btState.device.gatt.connected){
+    try { btState.device.gatt.disconnect(); } catch(e){}
+  }
+  btState.device = null; btState.server = null; btState.writeChar = null; btState.writeSvcUuid = null; btState.writeChrUuid = null;
+  btSetProgress(null);
+  btSetStatus("Desconectado. Tocá «Conectar impresora Bluetooth» cuando quieras reintentar.", "");
+  btUpdateButtons();
+}
+async function btUseManual(){
+  var svcUuid = btNormalizeUuid((document.getElementById("btSvcUuid") || {}).value || "");
+  var chrUuid = btNormalizeUuid((document.getElementById("btChrUuid") || {}).value || "");
+  if (!svcUuid || !chrUuid){ btSetStatus("Pegá el UUID de servicio y el de característica para poder usarlos.", "err"); return; }
+  if (!btState.server){
+    btSetStatus("UUID guardados: se incluyen en la próxima búsqueda. Ahora tocá «Conectar impresora Bluetooth» y elegí la impresora.", "");
+    return;
+  }
+  btSetStatus("Buscando el servicio " + btShortUuid(svcUuid) + " y la característica " + btShortUuid(chrUuid) + "…", "working");
+  try {
+    var svc = await btState.server.getPrimaryService(svcUuid);
+    var chr = await svc.getCharacteristic(chrUuid);
+    btSelectChar({ svcUuid: svc.uuid, chrUuid: chr.uuid, char: chr }, true);
+  } catch(e){
+    btSetStatus("No se pudo usar ese UUID: " + btErrMsg(e) + " Si el servicio no estaba en la lista de búsqueda, desconectá, dejá los UUID pegados y volvé a conectar.", "err");
+  }
+  btUpdateButtons();
+}
+/* Codifica un canvas binario como raster ESC/POS: ESC @ + GS v 0 por bandas + avance.
+   El ancho de salida es siempre 384 px (48 mm a 203 dpi), el de la vista térmica. */
+function btBuildEscPos(src){
+  var TW = 384;
+  var th = Math.max(1, Math.round(src.height * TW / src.width));
+  var tc = document.createElement("canvas"); tc.width = TW; tc.height = th;
+  var tx = tc.getContext("2d");
+  tx.fillStyle = "#ffffff"; tx.fillRect(0, 0, TW, th);
+  tx.imageSmoothingEnabled = false;
+  tx.drawImage(src, 0, 0, TW, th);
+  var data = tx.getImageData(0, 0, TW, th).data;
+  var rowBytes = TW / 8, band = 24, out = [];
+  function push(){ for (var i = 0; i < arguments.length; i++) out.push(arguments[i]); }
+  push(0x1B, 0x40);                                   /* ESC @ — inicializar */
+  for (var y0 = 0; y0 < th; y0 += band){
+    var bh = Math.min(band, th - y0);
+    push(0x1D, 0x76, 0x30, 0x00, rowBytes & 0xFF, (rowBytes >> 8) & 0xFF, bh & 0xFF, (bh >> 8) & 0xFF);   /* GS v 0 */
+    for (var y = 0; y < bh; y++){
+      for (var bx = 0; bx < rowBytes; bx++){
+        var byte = 0;
+        for (var bit = 0; bit < 8; bit++){
+          var idx = ((y0 + y) * TW + bx * 8 + bit) * 4;
+          var lum = data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+          if (data[idx + 3] > 0 && lum < 128) byte |= (0x80 >> bit);
+        }
+        out.push(byte);
+      }
+    }
+  }
+  push(0x1B, 0x64, 0x04);                             /* ESC d 4 — avanzar papel */
+  return { bytes: new Uint8Array(out), width: TW, height: th };
+}
+function btTestCanvas(){
+  var cv = document.createElement("canvas"); cv.width = 384; cv.height = 96;
+  var x = cv.getContext("2d");
+  x.fillStyle = "#fff"; x.fillRect(0, 0, 384, 96);
+  x.fillStyle = "#000";
+  x.fillRect(0, 0, 384, 10); x.fillRect(0, 86, 384, 10);
+  x.fillRect(0, 0, 10, 96); x.fillRect(374, 0, 10, 96);
+  x.fillRect(28, 24, 150, 14); x.fillRect(28, 46, 100, 14);
+  for (var cx = 0; cx < 4; cx++) for (var cy = 0; cy < 2; cy++) if ((cx + cy) % 2 === 0) x.fillRect(330 + cx * 10, 24 + cy * 10, 10, 10);
+  x.font = "700 25px sans-serif"; x.textBaseline = "alphabetic";
+  x.fillText("FunPrint Studio", 28, 82);
+  return cv;
+}
+async function btSendBytes(bytes, label){
+  var ch = btState.writeChar;
+  if (!ch){ btSetStatus("No hay característica de escritura elegida: conectá la impresora y elegí una.", "err"); return false; }
+  var CHUNK = 180, sent = 0;
+  btState.sending = true; btUpdateButtons(); btSetProgress(0);
+  try {
+    for (var off = 0; off < bytes.length; off += CHUNK){
+      if (!btState.device || !btState.device.gatt || !btState.device.gatt.connected)
+        throw new Error("La impresora se desconectó a mitad del envío (" + sent + " de " + bytes.length + " bytes enviados). Acercala, verificá que siga prendida y reintentá.");
+      var slice = bytes.slice(off, Math.min(off + CHUNK, bytes.length));
+      try {
+        if (ch.properties.writeWithoutResponse && typeof ch.writeValueWithoutResponse === "function") await ch.writeValueWithoutResponse(slice);
+        else if (typeof ch.writeValueWithResponse === "function") await ch.writeValueWithResponse(slice);
+        else await ch.writeValue(slice);
+      } catch(werr){
+        if (typeof ch.writeValue === "function") await ch.writeValue(slice);
+        else throw werr;
+      }
+      sent += slice.length;
+      btSetProgress(sent / bytes.length);
+      btSetStatus("Enviando " + label + ": " + Math.round(sent / bytes.length * 100) + "% (" + sent + " de " + bytes.length + " bytes)…", "working");
+      if (off + CHUNK < bytes.length) await btSleep(45);
+    }
+    await btSleep(900);   /* espera final para que la impresora termine de imprimir */
+    btState.sending = false; btSetProgress(null);
+    btSetStatus("Listo: " + label + " enviado completo (" + bytes.length + " bytes). Revisá cómo salió en el papel.", "ok");
+    btWriteDiag(label, bytes.length, bytes.length, "OK — envío completo");
+    btUpdateButtons();
+    return true;
+  } catch(e){
+    btState.sending = false; btSetProgress(null);
+    btSetStatus("Error enviando " + label + ": " + btErrMsg(e), "err");
+    btWriteDiag(label, sent, bytes.length, "Error: " + btErrMsg(e), e);
+    btUpdateButtons();
+    return false;
+  }
+}
+async function btPrintTest(){
+  if (!btState.writeChar){ btSetStatus("Primero conectá la impresora y elegí la característica de escritura.", "err"); return; }
+  btState.attempts++;
+  var enc = btBuildEscPos(btTestCanvas());
+  btSetStatus("Enviando la prueba pequeña (franja de " + enc.width + " × " + enc.height + " px, " + enc.bytes.length + " bytes)…", "working");
+  await btSendBytes(enc.bytes, "la prueba pequeña");
+}
+async function btPrintCollar(){
+  if (!btState.writeChar){ btSetStatus("Primero conectá la impresora y elegí la característica de escritura.", "err"); return; }
+  btState.attempts++;
+  if (!state.items.length){ btSetStatus("El collar está vacío: agregá al menos una fotografía antes de imprimir.", "err"); return; }
+  var src = composeCanvas("thermal");   /* exactamente el mismo canvas térmico que exporta el PNG */
+  var enc = btBuildEscPos(src);
+  btSetStatus("Enviando el collar (" + enc.width + " × " + enc.height + " px binarios, " + enc.bytes.length + " bytes ESC/POS)…", "working");
+  await btSendBytes(enc.bytes, "el collar");
+}
+function btShowUnsupported(){
+  var box = document.getElementById("btUnsupported"); if (!box) return;
+  box.textContent = "Este navegador no soporta Web Bluetooth (navigator.bluetooth no está disponible), así que la impresión directa no puede funcionar acá. Abrí FunPrint Studio en Chrome o Edge — idealmente Chrome en Android — o seguí con el flujo de siempre: exportá el PNG térmico y abrilo en Fun Print para imprimir.";
+  box.classList.add("show");
+  btSetStatus("Web Bluetooth no disponible en este navegador.", "err");
+  btUpdateButtons();
+}
+function btCopyDiag(){
+  var ta = document.getElementById("btDiag"); if (!ta) return;
+  if (!ta.value){ toast("Todavía no hay diagnóstico para copiar: conectá la impresora o intentá imprimir."); return; }
+  function done(){ toast("Diagnóstico copiado. Pegalo donde quieras para reportarlo."); }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, function(){ ta.select(); document.execCommand("copy"); done(); });
+  else { ta.select(); document.execCommand("copy"); done(); }
+}
+/* cableado Bluetooth */
+on("#btOpenBtn", "click", function(){ $("#btOverlay").classList.add("open"); btRenderEnv(); if (!btSupported()) btShowUnsupported(); });
+on("#btClose", "click", function(){ $("#btOverlay").classList.remove("open"); });
+$("#btOverlay").addEventListener("click", function(e){ if (e.target === this) this.classList.remove("open"); });
+on("#btConnectBtn", "click", btConnect);
+on("#btDisconnectBtn", "click", btDisconnect);
+on("#btManualBtn", "click", btUseManual);
+on("#btTestBtn", "click", btPrintTest);
+on("#btPrintBtn", "click", btPrintCollar);
+on("#btCopyBtn", "click", btCopyDiag);
+btRenderEnv();
+if (!btSupported()) btShowUnsupported(); else btUpdateButtons();
+
+/* ============================================================
+   Cableado de la interfaz
+   ============================================================ */
+function on(id, ev, fn){ $(id).addEventListener(ev, fn); }
+on("#importBtn", "click", function(){ $("#fileInput").click(); });
+on("#importBtn2", "click", function(){ $("#fileInput").click(); });
+on("#fileInput", "change", function(e){ importFiles(e.target.files); e.target.value = ""; });
+on("#openBtn", "click", function(){ $("#projectInput").click(); });
+on("#projectInput", "change", function(e){
+  var f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){ try { loadProject(JSON.parse(rd.result)); } catch(err){ toast("No se pudo leer el proyecto."); } };
+  rd.readAsText(f);
+});
+on("#saveBtn", "click", saveProject);
+on("#newBtn", "click", function(){
+  if (state.items.length) $("#confirmOverlay").classList.add("open");
+  else newProject();
+});
+on("#confirmCancel", "click", function(){ $("#confirmOverlay").classList.remove("open"); });
+on("#confirmOk", "click", function(){ $("#confirmOverlay").classList.remove("open"); newProject(); });
+on("#undoBtn", "click", undo);
+on("#redoBtn", "click", redo);
+on("#exportBtn", "click", function(e){ e.stopPropagation(); $("#exportMenu").classList.toggle("open"); });
+document.addEventListener("click", function(e){ if (!e.target.closest(".menu-wrap")) $("#exportMenu").classList.remove("open"); });
+$all("#exportMenu [data-export]").forEach(function(b){ b.addEventListener("click", function(){ doExport(b.dataset.export); }); });
+$all(".seg [data-view]").forEach(function(b){
+  b.addEventListener("click", function(){
+    state.view = b.dataset.view;
+    renderItems(); refreshThermalSize();
+  });
+});
+on("#compareBtn", "click", openComparator);
+on("#cmpClose", "click", function(){ $("#cmpOverlay").classList.remove("open"); });
+$("#cmpOverlay").addEventListener("click", function(e){ if (e.target === this) this.classList.remove("open"); });
+$all("#leftTabs [data-tab]").forEach(function(b){
+  b.addEventListener("click", function(){
+    $all("#leftTabs [data-tab]").forEach(function(x){ x.classList.toggle("on", x === b); });
+    $all(".tabpage").forEach(function(p){ p.classList.toggle("on", p.id === "tab-" + b.dataset.tab); });
+  });
+});
+$all("[data-elem]").forEach(function(b){ b.addEventListener("click", function(){ addElement(b.dataset.elem); }); });
+$all("[data-template]").forEach(function(b){ b.addEventListener("click", function(){ applyTemplate(b.dataset.template); }); });
+on("#genBtn", "click", generateAutoCollage);
+/* Fase 3: lote y biblioteca */
+[["#batchBrightness","#batchBrightnessVal"],["#batchContrast","#batchContrastVal"],["#batchExposure","#batchExposureVal"],["#batchSharp","#batchSharpVal"]].forEach(function(pair){
+  var inp = $(pair[0]); if (inp) inp.addEventListener("input", function(){ var o=$(pair[1]); if (o) o.textContent = inp.value; });
+});
+on("#batchApplyBtn", "click", applyBatch);
+on("#batchAutoBtn", "click", batchAuto);
+on("#batchBgBtn", "click", batchBg);
+on("#batchAddAllBtn", "click", batchAddAll);
+on("#batchSeparateBtn", "click", exportBatchSeparate);
+on("#libSaveBtn", "click", saveToLibrary);
+on("#libExportBtn", "click", exportLibrary);
+on("#libImportBtn", "click", function(){ $("#libInput").click(); });
+on("#libInput", "change", function(e){
+  var f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){ try { importLibraryData(JSON.parse(rd.result)); } catch(err){ toast("No se pudo leer la biblioteca."); } };
+  rd.readAsText(f);
+});
+["#libSearch","#libFilter","#libSort"].forEach(function(id){ var el=$(id); if (el){ el.addEventListener("input", renderLibrary); el.addEventListener("change", renderLibrary); } });
+renderLibrary();
+on("#projName", "input", function(e){ state.name = e.target.value; });
+on("#projName", "change", function(){ pushHistory("Proyecto renombrado"); });
+/* zoom */
+function setZoom(z){ state.zoom = clamp(z, 0.35, 4); renderItems(); }
+on("#zoomIn", "click", function(){ setZoom(state.zoom * 1.2); });
+on("#zoomOut", "click", function(){ setZoom(state.zoom / 1.2); });
+on("#zoomFit", "click", function(){
+  var sc = $("#canvasScroll");
+  var availW = sc.clientWidth - 90, availH = sc.clientHeight - 90;
+  var S = state.settings;
+  var z = Math.min(availW / (S.rollWidth * 5.2), availH / (S.collarHeight * 5.2));
+  setZoom(clamp(z, 0.2, 3));
+});
+on("#zoomPixels", "click", function(){ setZoom(pxPerMm() / 5.2); toast("Zoom 1:1 — un píxel de pantalla por píxel de impresión."); });
+var guidesBtn = $("#guidesBtn"); guidesBtn.classList.add("active");
+guidesBtn.addEventListener("click", function(){ state.showGuides = !state.showGuides; guidesBtn.classList.toggle("active", state.showGuides); refreshPaper(); });
+/* drag & drop de archivos */
+var dz = $("#dropzone");
+["dragenter", "dragover"].forEach(function(ev){ dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.add("drag"); }); });
+["dragleave", "drop"].forEach(function(ev){ dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.remove("drag"); }); });
+dz.addEventListener("drop", function(e){ importFiles(e.dataTransfer.files); });
+document.addEventListener("dragover", function(e){ e.preventDefault(); });
+document.addEventListener("drop", function(e){ e.preventDefault(); });
+/* teclado */
+document.addEventListener("keydown", function(e){
+  var tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select") return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z"){ e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y"){ e.preventDefault(); redo(); }
+  if ((e.key === "Delete" || e.key === "Backspace") && state.selectedId){ deleteItem(state.selectedId); }
+  if (e.key === "Escape"){ state.selectedId = null; renderItems(); renderRight(); }
+});
+/* estado inicial */
+pushHistory("Proyecto creado");
+fullRender();
+setTimeout(function(){ $("#zoomFit").click(); }, 60);
+</script>
+</body>
+</html>
