@@ -526,7 +526,7 @@ textarea.txt-in{resize:vertical;min-height:58px;line-height:1.4}
 <div class="overlay" id="btOverlay">
   <div class="modal bt-modal">
     <h2>Impresión directa por Bluetooth<span class="exp-badge">EXPERIMENTAL</span></h2>
-    <p class="sub">Alternativa experimental a la exportación para Fun Print: manda el mismo collar térmico por Bluetooth (Web Bluetooth + ESC/POS). <b>El flujo de siempre no cambia:</b> si esto no funciona con tu impresora, exportás el PNG térmico y lo imprimís desde Fun Print.</p>
+    <p class="sub">Alternativa experimental a la exportación para Fun Print: manda el mismo collar térmico por Bluetooth. Soporta el protocolo propio de la <b>MXW01 (V5X, paquetes 22 21)</b> — se detecta solo cuando la impresora expone el servicio ae30/af30 con sus tres características — y <b>ESC/POS genérico</b> para otras impresoras. <b>El flujo de siempre no cambia:</b> si esto no funciona con tu impresora, exportás el PNG térmico y lo imprimís desde Fun Print.</p>
     <div class="bt-warnbox" id="btUnsupported"></div>
     <div class="bt-env" id="btEnv">
       <div class="bt-sec-t" style="margin-top:0">Chequeo del entorno</div>
@@ -538,7 +538,7 @@ textarea.txt-in{resize:vertical;min-height:58px;line-height:1.4}
       <li>La impresora tiene que estar <b>prendida, con papel y cerca</b> del teléfono o la computadora.</li>
       <li>Solo funciona en navegadores con Web Bluetooth: <b>Chrome o Edge</b>, idealmente Chrome en Android. En iPhone/iPad no está disponible.</li>
     </ol>
-    <p class="bt-note">No está confirmado que la Microfast C9 acepte comandos ESC/POS por Bluetooth: algunas mini impresoras solo hablan con su app oficial. Si la C9 no expone un servicio BLE escribible compatible, el diagnóstico de abajo lo va a decir claramente, sin fallar en silencio.</p>
+    <p class="bt-note">La MXW01 no entiende ESC/POS suelto: usa su protocolo propio, con los comandos por la característica <b>ae01</b>, las respuestas por <b>ae02</b> y los datos de imagen por <b>ae03</b>, recién después de abrir el trabajo. Si tu impresora es una MXW01, dejá el protocolo en «Auto» y se elige solo. Para otras impresoras queda ESC/POS genérico como alternativa manual. Si la impresora no expone un servicio BLE compatible, el diagnóstico de abajo lo va a decir claramente, sin fallar en silencio.</p>
     <div class="bt-status" id="btStatus"><span class="dotst"></span><span id="btStatusText">Sin conexión. Tocá «Conectar impresora Bluetooth» para empezar.</span></div>
     <div class="bt-progress" id="btProgress"><i id="btBar"></i></div>
     <div class="bt-actions">
@@ -549,6 +549,24 @@ textarea.txt-in{resize:vertical;min-height:58px;line-height:1.4}
       <button class="btn" id="btTestBtn" disabled>Prueba pequeña</button>
       <button class="btn primary" id="btPrintBtn" disabled>Imprimir collar por Bluetooth</button>
     </div>
+    <div class="bt-sec-t">Protocolo e intensidad</div>
+    <div class="bt-manual">
+      <label>Protocolo
+        <select class="sel-in" id="btProtoSel">
+          <option value="auto" selected>Auto (detecta MXW01)</option>
+          <option value="mxw01">MXW01 (22 21)</option>
+          <option value="escpos">ESC/POS genérico</option>
+        </select>
+      </label>
+      <label>Intensidad de impresión (MXW01) · <span id="btIntensityVal">80</span>
+        <input type="range" id="btIntensity" min="0" max="100" step="1" value="80">
+      </label>
+    </div>
+    <p class="bt-note" style="margin-bottom:9px">En «Auto», si la impresora expone ae01 + ae02 + ae03 en el servicio ae30/af30 se usa el protocolo MXW01; si no, se sigue con ESC/POS (raster GS v 0, 384 px). La intensidad solo aplica a MXW01 y va de 0 a 100.</p>
+    <div class="bt-actions">
+      <button class="btn" id="btStatusBtn" disabled>Consultar estado</button>
+    </div>
+    <p class="bt-note" id="btPrinterInfo" style="display:none"></p>
     <div class="bt-sec-t">Servicios y características GATT</div>
     <div id="btGattList"><div class="gatt-empty">Todavía no hay ninguna impresora conectada. Al conectar, acá se listan los servicios y características que expone, con sus propiedades, para elegir la de escritura.</div></div>
     <div class="bt-sec-t">UUID manuales (opcional)</div>
@@ -2355,11 +2373,17 @@ function importLibraryData(data){
 
 /* ============================================================
    Fase 4 — Impresión directa por Bluetooth (EXPERIMENTAL)
-   Web Bluetooth + raster ESC/POS. Alternativa a la exportación:
-   si la impresora no acepta este protocolo, el flujo PNG/PDF
-   para Fun Print sigue siendo el camino. Todo local.
+   Web Bluetooth + protocolo MXW01 (V5X, paquetes 22 21) o
+   raster ESC/POS. Alternativa a la exportación: si la impresora
+   no acepta estos protocolos, el flujo PNG/PDF para Fun Print
+   sigue siendo el camino. Todo local.
    ============================================================ */
-var btState = { device:null, server:null, writeChar:null, writeSvcUuid:null, writeChrUuid:null, chars:[], sending:false, lastListingText:"", attempts:0, envAvail:null };
+var btState = { device:null, server:null, writeChar:null, writeSvcUuid:null, writeChrUuid:null, chars:[], sending:false, lastListingText:"", attempts:0, envAvail:null,
+  /* MXW01 */
+  protoMode:"auto", effectiveProtocol:null, mxwSvcUuid:null,
+  cmdChar:null, cmdChrUuid:null, dataChar:null, dataChrUuid:null, notifyChar:null, notifyChrUuid:null,
+  intensity:80, lastLines:0, lastMode:null, dataBytesSent:0, cmdBytesSent:0,
+  responses:[], waiters:[], lastStatus:{} };
 /* Perfiles UART BLE habituales en mini impresoras térmicas (servicio -> característica de escritura) */
 var BT_KNOWN_WRITE = {
   "6e400002-b5a3-f393-e0a9-e50e24dcca9e": "Nordic UART",
@@ -2377,6 +2401,7 @@ var BT_KNOWN_SERVICES = [
   "0000fff0-0000-1000-8000-00805f9b34fb",
   "000018f0-0000-1000-8000-00805f9b34fb",
   "0000ae30-0000-1000-8000-00805f9b34fb",
+  "0000af30-0000-1000-8000-00805f9b34fb",
   "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
   "00001800-0000-1000-8000-00805f9b34fb",
   "00001801-0000-1000-8000-00805f9b34fb",
@@ -2384,6 +2409,160 @@ var BT_KNOWN_SERVICES = [
 ];
 function btSleep(ms){ return new Promise(function(res){ setTimeout(res, ms); }); }
 function btSupported(){ return typeof navigator !== "undefined" && !!navigator.bluetooth; }
+/* ---------- Protocolo MXW01 (V5X): servicios, comandos y paquetes 22 21 ---------- */
+var MXW_SERVICE_SHORTS = ["ae30", "af30"];
+var MXW_CMD = { GET_STATUS:0xA1, PRINT_INTENSITY:0xA2, PRINT:0xA9, PRINT_COMPLETE:0xAA, BATTERY:0xAB, PRINT_FLUSH:0xAD, GET_VERSION:0xB1 };
+function mxwShort(u){ var m = /^0000([0-9a-f]{4})-0000-1000-8000-00805f9b34fb$/.exec(String(u||"").toLowerCase()); return m ? m[1] : ""; }
+function mxwCrc8(bytes){
+  var crc = 0;
+  for (var i = 0; i < bytes.length; i++){
+    crc ^= (bytes[i] & 0xFF);
+    for (var b = 0; b < 8; b++){
+      crc = (crc & 0x80) ? (((crc << 1) ^ 0x07) & 0xFF) : ((crc << 1) & 0xFF);
+    }
+  }
+  return crc & 0xFF;
+}
+/* Paquete de comando: [0x22, 0x21, id, 0x00, lenLow, lenHigh, carga..., CRC8, 0xFF].
+   El CRC-8 (polinomio 0x07, inicio 0x00) se calcula sobre encabezado + carga. */
+function mxwBuildPacket(cmdId, payload){
+  payload = payload || [];
+  var n = payload.length;
+  var pkt = [0x22, 0x21, cmdId & 0xFF, 0x00, n & 0xFF, (n >> 8) & 0xFF];
+  for (var i = 0; i < n; i++) pkt.push(payload[i] & 0xFF);
+  pkt.push(mxwCrc8(pkt));
+  pkt.push(0xFF);
+  return new Uint8Array(pkt);
+}
+function mxwHex(bytes){
+  var out = [];
+  for (var i = 0; i < bytes.length; i++) out.push(("0" + (bytes[i] & 0xFF).toString(16)).slice(-2).toUpperCase());
+  return out.join(" ");
+}
+function mxwCmdName(cmd){
+  for (var k in MXW_CMD) if (MXW_CMD[k] === cmd) return k;
+  return "0x" + ("0" + cmd.toString(16)).slice(-2).toUpperCase();
+}
+/* Parsea una respuesta que llega por ae02 (mismo encuadre 22 21, id en el byte 2). */
+function mxwParseResponse(bytes){
+  var parsed = { cmd:null, hex:mxwHex(bytes) };
+  if (!bytes || bytes.length < 3 || bytes[0] !== 0x22 || bytes[1] !== 0x21) return parsed;
+  parsed.cmd = bytes[2];
+  parsed.cmdName = mxwCmdName(parsed.cmd);
+  if (parsed.cmd === MXW_CMD.GET_STATUS && bytes.length > 13){
+    parsed.battery = bytes[9]; parsed.temperature = bytes[10]; parsed.state = bytes[12]; parsed.detail = bytes[13];
+  }
+  if (parsed.cmd === MXW_CMD.BATTERY && bytes.length > 6) parsed.battery = bytes[6];
+  if (parsed.cmd === MXW_CMD.GET_VERSION && bytes.length > 14){
+    var ver = "";
+    for (var i = 6; i <= 13 && i < bytes.length; i++){ if (bytes[i] >= 32 && bytes[i] < 127) ver += String.fromCharCode(bytes[i]); }
+    parsed.version = ver.replace(/\s+$/, ""); parsed.printerType = bytes[14];
+  }
+  if (parsed.cmd === MXW_CMD.PRINT_COMPLETE && bytes.length > 6) parsed.printCompleteOk = (bytes[6] === 0x00);
+  return parsed;
+}
+function mxwDescribeParsed(p){
+  if (!p) return "";
+  var parts = [];
+  if (p.cmdName) parts.push("comando " + p.cmdName);
+  if (p.battery !== undefined) parts.push("batería " + p.battery + "%");
+  if (p.temperature !== undefined) parts.push("temperatura " + p.temperature + " °C");
+  if (p.state !== undefined) parts.push("estado " + p.state);
+  if (p.detail !== undefined) parts.push("detalle " + p.detail);
+  if (p.version !== undefined) parts.push("versión " + (p.version || "—"));
+  if (p.printerType !== undefined) parts.push("tipo de impresora " + p.printerType);
+  if (p.printCompleteOk !== undefined) parts.push("fin de impresión " + (p.printCompleteOk ? "OK (éxito)" : "con error"));
+  return parts.join(" · ");
+}
+function mxwApplyParsedToStatus(p){
+  if (!p) return;
+  var s = btState.lastStatus;
+  if (p.battery !== undefined) s.battery = p.battery;
+  if (p.temperature !== undefined) s.temperature = p.temperature;
+  if (p.state !== undefined) s.state = p.state;
+  if (p.detail !== undefined) s.detail = p.detail;
+  if (p.version !== undefined) s.version = p.version;
+  if (p.printerType !== undefined) s.printerType = p.printerType;
+  if (p.printCompleteOk !== undefined) s.printCompleteOk = p.printCompleteOk;
+}
+function mxwRenderPrinterInfo(){
+  var el = document.getElementById("btPrinterInfo"); if (!el) return;
+  var s = btState.lastStatus, parts = [];
+  if (s.battery !== undefined) parts.push("Batería: " + s.battery + "%");
+  if (s.temperature !== undefined) parts.push("Temperatura: " + s.temperature + " °C");
+  if (s.state !== undefined) parts.push("Estado: " + s.state + (s.detail !== undefined ? " (detalle " + s.detail + ")" : ""));
+  if (s.version !== undefined) parts.push("Versión: " + (s.version || "—") + (s.printerType !== undefined ? " · tipo " + s.printerType : ""));
+  if (s.printCompleteOk !== undefined) parts.push("Último fin de impresión: " + (s.printCompleteOk ? "OK" : "con error"));
+  if (!parts.length){ el.style.display = "none"; el.textContent = ""; return; }
+  el.textContent = "Estado de la impresora (MXW01) — " + parts.join(" · ");
+  el.style.display = "block";
+}
+function mxwOnNotify(ev){
+  var v = ev && ev.target && ev.target.value; if (!v) return;
+  var bytes = new Uint8Array(v.buffer, v.byteOffset || 0, v.byteLength);
+  var copy = new Uint8Array(bytes.length); copy.set(bytes);
+  var parsed = mxwParseResponse(copy);
+  btState.responses.push(parsed);
+  mxwApplyParsedToStatus(parsed);
+  mxwRenderPrinterInfo();
+  var pending = [];
+  btState.waiters.forEach(function(w){
+    if (w.cmd === parsed.cmd){ clearTimeout(w.timer); w.resolve(parsed); }
+    else pending.push(w);
+  });
+  btState.waiters = pending;
+}
+function mxwWaitResponse(cmd, timeoutMs){
+  return new Promise(function(resolve){
+    var w = { cmd:cmd, resolve:resolve, timer:null };
+    w.timer = setTimeout(function(){
+      btState.waiters = btState.waiters.filter(function(x){ return x !== w; });
+      resolve(null);
+    }, timeoutMs);
+    btState.waiters.push(w);
+  });
+}
+/* Escribe un comando por ae01 y suma los bytes al contador de comandos. */
+async function mxwSendCommand(cmdId, payload){
+  var ch = btState.cmdChar;
+  if (!ch) throw new Error("No hay característica de comandos (ae01) disponible: la impresora no quedó en modo MXW01.");
+  var pkt = mxwBuildPacket(cmdId, payload);
+  if (ch.properties.writeWithoutResponse && typeof ch.writeValueWithoutResponse === "function") await ch.writeValueWithoutResponse(pkt);
+  else if (typeof ch.writeValueWithResponse === "function") await ch.writeValueWithResponse(pkt);
+  else await ch.writeValue(pkt);
+  btState.cmdBytesSent += pkt.length;
+  return pkt.length;
+}
+/* Busca el trío MXW01 (comandos/datos/notificaciones) en los servicios ae30/af30 descubiertos. */
+function mxwDetect(){
+  for (var i = 0; i < btState.chars.length; i++){
+    var svcShort = mxwShort(btState.chars[i].svcUuid);
+    if (MXW_SERVICE_SHORTS.indexOf(svcShort) === -1) continue;
+    var prefix = svcShort.slice(0, 2);   /* "ae" o "af" */
+    var cmd = null, data = null, notify = null;
+    for (var j = 0; j < btState.chars.length; j++){
+      if (btState.chars[j].svcUuid !== btState.chars[i].svcUuid) continue;
+      var cs = mxwShort(btState.chars[j].chrUuid);
+      if (cs === prefix + "01") cmd = btState.chars[j];
+      else if (cs === "ae01" && !cmd) cmd = btState.chars[j];
+      if (cs === prefix + "03") data = btState.chars[j];
+      else if (cs === "ae03" && !data) data = btState.chars[j];
+      if (cs === prefix + "02") notify = btState.chars[j];
+      else if (cs === "ae02" && !notify) notify = btState.chars[j];
+    }
+    if (cmd && data && notify) return { svcUuid: btState.chars[i].svcUuid, cmd:cmd, data:data, notify:notify };
+  }
+  return null;
+}
+function mxwRoleLabel(svcUuid, chrUuid){
+  var ss = mxwShort(svcUuid), cs = mxwShort(chrUuid);
+  if (MXW_SERVICE_SHORTS.indexOf(ss) === -1 || !cs) return "";
+  var prefix = ss.slice(0, 2);
+  if (cs === prefix + "01" || cs === "ae01") return "MXW01 · comandos";
+  if (cs === prefix + "02" || cs === "ae02") return "MXW01 · notificaciones";
+  if (cs === prefix + "03" || cs === "ae03") return "MXW01 · datos";
+  return "";
+}
 /* ---------- Chequeo de entorno: por qué el navegador puede bloquear Bluetooth ---------- */
 function btEnvInfo(){
   var embedded = false;
@@ -2495,12 +2674,15 @@ function btSetProgress(frac){
 function btUpdateButtons(){
   var connected = !!(btState.device && btState.server);
   var c = document.getElementById("btConnectBtn"), d = document.getElementById("btDisconnectBtn"),
-      t = document.getElementById("btTestBtn"), p = document.getElementById("btPrintBtn");
+      t = document.getElementById("btTestBtn"), p = document.getElementById("btPrintBtn"),
+      q = document.getElementById("btStatusBtn");
   if (c) c.disabled = connected || btState.sending || !btSupported();
   if (d) d.disabled = !btState.device || btState.sending;
-  var canPrint = connected && !!btState.writeChar && !btState.sending;
+  var canPrint = connected && !btState.sending &&
+    (btState.effectiveProtocol === "mxw01" ? !!(btState.cmdChar && btState.dataChar) : !!btState.writeChar);
   if (t) t.disabled = !canPrint;
   if (p) p.disabled = !canPrint;
+  if (q) q.disabled = !(connected && btState.effectiveProtocol === "mxw01" && !btState.sending);
 }
 function btOptionalServices(){
   var list = BT_KNOWN_SERVICES.slice();
@@ -2526,6 +2708,36 @@ function btWriteDiag(task, sent, total, result, rawErr){
     lines.push("Error crudo (mensaje): " + (rawErr.message || String(rawErr)));
   }
   lines.push("");
+  lines.push("Protocolo y detalle MXW01:");
+  lines.push("- Protocolo: " + (btState.effectiveProtocol === "mxw01" ? "MXW01" : (btState.effectiveProtocol === "escpos" ? "ESC/POS" : "— (selector: " + btState.protoMode + ")")));
+  lines.push("- Característica de comandos: " + (btState.cmdChrUuid || "—"));
+  lines.push("- Característica de datos: " + (btState.dataChrUuid || "—"));
+  lines.push("- Característica de notificaciones: " + (btState.notifyChrUuid || "—"));
+  lines.push("- Intensidad: " + btState.intensity);
+  lines.push("- Líneas: " + btState.lastLines);
+  lines.push("- Modo: " + (btState.lastMode || "—"));
+  lines.push("- Bytes de datos enviados a ae03: " + btState.dataBytesSent);
+  lines.push("- Bytes de comandos enviados a ae01: " + btState.cmdBytesSent);
+  if (btState.responses.length){
+    lines.push("- Respuestas recibidas por ae02:");
+    btState.responses.forEach(function(r){
+      var desc = mxwDescribeParsed(r);
+      lines.push("  · " + (r.hex || "—") + (desc ? " → " + desc : ""));
+    });
+  } else {
+    lines.push("- Respuestas recibidas por ae02: (ninguna)");
+  }
+  var ls = btState.lastStatus;
+  var lsParts = [];
+  if (ls.battery !== undefined) lsParts.push("batería " + ls.battery + "%");
+  if (ls.temperature !== undefined) lsParts.push("temperatura " + ls.temperature + " °C");
+  if (ls.state !== undefined) lsParts.push("estado " + ls.state);
+  if (ls.detail !== undefined) lsParts.push("detalle " + ls.detail);
+  if (ls.version !== undefined) lsParts.push("versión " + (ls.version || "—"));
+  if (ls.printerType !== undefined) lsParts.push("tipo " + ls.printerType);
+  if (ls.printCompleteOk !== undefined) lsParts.push("fin de impresión " + (ls.printCompleteOk ? "OK" : "con error"));
+  if (lsParts.length) lines.push("- Estado parseado: " + lsParts.join(" · "));
+  lines.push("");
   lines.push("Entorno:");
   lines.push("- API Web Bluetooth disponible: " + (env.supported ? "sí" : "no"));
   lines.push("- Contexto seguro (HTTPS): " + (env.secure === null ? "no determinado" : (env.secure ? "sí" : "no")));
@@ -2544,9 +2756,10 @@ function btSelectChar(entry, manual){
     return false;
   }
   btState.writeChar = entry.char; btState.writeSvcUuid = entry.svcUuid; btState.writeChrUuid = entry.chrUuid;
+  btState.effectiveProtocol = "escpos";
   $all("#btGattList .gatt-chr").forEach(function(r){ r.classList.toggle("sel", r.getAttribute("data-chr") === entry.chrUuid && r.getAttribute("data-svc") === entry.svcUuid); });
   var profile = BT_KNOWN_WRITE[entry.chrUuid];
-  btSetStatus("Característica de escritura lista: servicio " + btShortUuid(entry.svcUuid) + " · característica " + btShortUuid(entry.chrUuid) + (profile ? " (perfil " + profile + ")" : "") + (manual ? " (elegida manualmente)" : " (detección automática)") + ". Probá primero con «Prueba pequeña».", "ok");
+  btSetStatus("Característica de escritura lista (ESC/POS): servicio " + btShortUuid(entry.svcUuid) + " · característica " + btShortUuid(entry.chrUuid) + (profile ? " (perfil " + profile + ")" : "") + (manual ? " (elegida manualmente)" : " (detección automática)") + ". Probá primero con «Prueba pequeña».", "ok");
   btUpdateButtons();
   return true;
 }
@@ -2572,11 +2785,12 @@ function btRenderGatt(listing){
       var row = document.createElement("div"); row.className = "gatt-chr";
       row.setAttribute("data-svc", entry.svc.uuid); row.setAttribute("data-chr", c.uuid);
       var u = document.createElement("span"); u.className = "uuid";
-      u.textContent = btShortUuid(c.uuid) + (BT_KNOWN_WRITE[c.uuid] ? " · " + BT_KNOWN_WRITE[c.uuid] : "");
+      var role = mxwRoleLabel(entry.svc.uuid, c.uuid);
+      u.textContent = btShortUuid(c.uuid) + (role ? " · " + role : (BT_KNOWN_WRITE[c.uuid] ? " · " + BT_KNOWN_WRITE[c.uuid] : ""));
       u.title = c.uuid;
       var pr = document.createElement("span"); pr.className = "props"; pr.textContent = btPropsStr(c.properties);
       row.appendChild(u); row.appendChild(pr);
-      textLines.push("  Característica " + c.uuid + " [" + btPropsStr(c.properties) + "]");
+      textLines.push("  Característica " + c.uuid + " [" + btPropsStr(c.properties) + "]" + (role ? " (" + role + ")" : ""));
       if (btIsWritable(c)){
         var b = document.createElement("button"); b.className = "btn sm"; b.textContent = "Usar para imprimir";
         (function(svcUuid, chr){ b.addEventListener("click", function(){ btSelectChar({ svcUuid: svcUuid, chrUuid: chr.uuid, char: chr }, true); }); })(entry.svc.uuid, c);
@@ -2590,9 +2804,59 @@ function btRenderGatt(listing){
   });
   btState.lastListingText = textLines.join("\n");
 }
-function btAutoPick(){
+function btClearMxwRoles(){
+  if (btState.notifyChar){
+    try { btState.notifyChar.removeEventListener("characteristicvaluechanged", mxwOnNotify); } catch(e){}
+    try {
+      if (btState.notifyChar.stopNotifications){
+        var sp = btState.notifyChar.stopNotifications();
+        if (sp && typeof sp.catch === "function") sp.catch(function(){});
+      }
+    } catch(e){}
+  }
+  btState.cmdChar = null; btState.cmdChrUuid = null;
+  btState.dataChar = null; btState.dataChrUuid = null;
+  btState.notifyChar = null; btState.notifyChrUuid = null;
+  btState.mxwSvcUuid = null;
+  btState.waiters.forEach(function(w){ clearTimeout(w.timer); w.resolve(null); });
+  btState.waiters = [];
+}
+async function btSetupMxw(triple){
+  btClearMxwRoles();
+  btState.effectiveProtocol = "mxw01";
+  btState.mxwSvcUuid = triple.svcUuid;
+  btState.cmdChar = triple.cmd.char; btState.cmdChrUuid = triple.cmd.chrUuid;
+  btState.dataChar = triple.data.char; btState.dataChrUuid = triple.data.chrUuid;
+  btState.notifyChar = triple.notify.char; btState.notifyChrUuid = triple.notify.chrUuid;
+  /* Compatibilidad con el diagnóstico clásico: el servicio de escritura es el
+     servicio MXW01 y la característica de escritura, la de datos (ae03). Los
+     comandos NUNCA van por ae03: van por ae01 (ver líneas MXW01 del diagnóstico). */
+  btState.writeSvcUuid = triple.svcUuid; btState.writeChrUuid = triple.data.chrUuid;
+  btState.writeChar = triple.data.char;
+  var uuids = [triple.cmd.chrUuid, triple.data.chrUuid, triple.notify.chrUuid];
+  $all("#btGattList .gatt-chr").forEach(function(r){
+    r.classList.toggle("sel", r.getAttribute("data-svc") === triple.svcUuid && uuids.indexOf(r.getAttribute("data-chr")) !== -1);
+  });
+  var notifyMsg = "";
+  try {
+    if (typeof btState.notifyChar.startNotifications === "function"){
+      await btState.notifyChar.startNotifications();
+      btState.notifyChar.addEventListener("characteristicvaluechanged", mxwOnNotify);
+      notifyMsg = " Notificaciones por " + btShortUuid(triple.notify.chrUuid) + " activas.";
+    }
+  } catch(e){ notifyMsg = " No se pudieron activar las notificaciones de " + btShortUuid(triple.notify.chrUuid) + " (" + btErrMsg(e) + "): la impresión puede seguir, pero sin respuestas de estado."; }
+  btSetStatus("Protocolo MXW01 listo en «" + ((btState.device && btState.device.name) || "sin nombre") + "»: comandos por " + btShortUuid(triple.cmd.chrUuid) + ", datos por " + btShortUuid(triple.data.chrUuid) + "." + notifyMsg + " Probá primero con «Prueba pequeña» o tocá «Consultar estado».", "ok");
+  btUpdateButtons();
+}
+function btSetupEscPos(){
+  btClearMxwRoles();
+  btState.effectiveProtocol = null;
   var pick = null, i;
-  for (i = 0; i < btState.chars.length; i++){ if (BT_KNOWN_WRITE[btState.chars[i].chrUuid] && btIsWritable(btState.chars[i].char)){ pick = btState.chars[i]; break; } }
+  /* En el servicio ae30/af30 se prefiere ae01 (comandos) antes que ae03 (datos). */
+  for (i = 0; i < btState.chars.length; i++){
+    if (MXW_SERVICE_SHORTS.indexOf(mxwShort(btState.chars[i].svcUuid)) !== -1 && mxwShort(btState.chars[i].chrUuid) === mxwShort(btState.chars[i].svcUuid).slice(0, 2) + "01" && btIsWritable(btState.chars[i].char)){ pick = btState.chars[i]; break; }
+  }
+  if (!pick) for (i = 0; i < btState.chars.length; i++){ if (BT_KNOWN_WRITE[btState.chars[i].chrUuid] && btIsWritable(btState.chars[i].char)){ pick = btState.chars[i]; break; } }
   if (!pick) for (i = 0; i < btState.chars.length; i++){ if (BT_KNOWN_SERVICES.indexOf(btState.chars[i].svcUuid) !== -1 && btIsWritable(btState.chars[i].char)){ pick = btState.chars[i]; break; } }
   if (!pick) for (i = 0; i < btState.chars.length; i++){ if (btIsWritable(btState.chars[i].char)){ pick = btState.chars[i]; break; } }
   if (pick){ btSelectChar(pick, false); return; }
@@ -2600,8 +2864,24 @@ function btAutoPick(){
   btWriteDiag("Detección de característica de escritura", 0, 0, "Sin característica escribible: la impresora no expone un servicio BLE compatible con ESC/POS por esta vía.");
   btUpdateButtons();
 }
+async function btApplyProtocol(){
+  var triple = mxwDetect();
+  if (btState.protoMode === "mxw01"){
+    if (triple){ await btSetupMxw(triple); return; }
+    btClearMxwRoles(); btState.effectiveProtocol = null; btState.writeChar = null;
+    btSetStatus("Elegiste el protocolo MXW01, pero esta impresora no expone ae01 + ae02 + ae03 en un servicio ae30/af30, así que no se puede imprimir en ese modo. Cambiá a «Auto» o a «ESC/POS genérico», o revisá los UUID manuales.", "err");
+    btWriteDiag("Detección de protocolo MXW01", 0, 0, "Modo MXW01 forzado, pero no se encontró el trío ae01/ae02/ae03 en ae30/af30.");
+    btUpdateButtons(); return;
+  }
+  if (btState.protoMode === "escpos"){ btSetupEscPos(); return; }
+  /* Auto: MXW01 si está el trío; si no, ESC/POS como hasta ahora. */
+  if (triple){ await btSetupMxw(triple); return; }
+  btSetupEscPos();
+}
+function btAutoPick(){ return btApplyProtocol(); }
 async function btDiscover(){
-  btState.chars = []; btState.writeChar = null; btState.writeSvcUuid = null; btState.writeChrUuid = null;
+  btClearMxwRoles();
+  btState.chars = []; btState.writeChar = null; btState.writeSvcUuid = null; btState.writeChrUuid = null; btState.effectiveProtocol = null;
   var services;
   try { services = await btState.server.getPrimaryServices(); }
   catch(e){ btSetStatus("Conectó, pero no se pudieron leer los servicios GATT: " + btErrMsg(e), "err"); btUpdateButtons(); return; }
@@ -2613,11 +2893,12 @@ async function btDiscover(){
     for (var j = 0; j < chars.length; j++) btState.chars.push({ svcUuid: services[i].uuid, chrUuid: chars[j].uuid, char: chars[j] });
   }
   btRenderGatt(listing);
-  btAutoPick();
+  await btAutoPick();
 }
 function btOnDisconnected(){
   var wasSending = btState.sending;
-  btState.server = null; btState.writeChar = null; btState.writeSvcUuid = null; btState.writeChrUuid = null;
+  btClearMxwRoles();
+  btState.server = null; btState.writeChar = null; btState.writeSvcUuid = null; btState.writeChrUuid = null; btState.effectiveProtocol = null;
   btSetProgress(null);
   if (!wasSending) btSetStatus("La impresora se desconectó. Revisá que siga prendida y cerca, y volvé a conectar.", "");
   btUpdateButtons();
@@ -2641,10 +2922,11 @@ async function btConnect(){
   await btDiscover();
 }
 function btDisconnect(){
+  btClearMxwRoles();
   if (btState.device && btState.device.gatt && btState.device.gatt.connected){
     try { btState.device.gatt.disconnect(); } catch(e){}
   }
-  btState.device = null; btState.server = null; btState.writeChar = null; btState.writeSvcUuid = null; btState.writeChrUuid = null;
+  btState.device = null; btState.server = null; btState.writeChar = null; btState.writeSvcUuid = null; btState.writeChrUuid = null; btState.effectiveProtocol = null;
   btSetProgress(null);
   btSetStatus("Desconectado. Tocá «Conectar impresora Bluetooth» cuando quieras reintentar.", "");
   btUpdateButtons();
@@ -2661,7 +2943,11 @@ async function btUseManual(){
   try {
     var svc = await btState.server.getPrimaryService(svcUuid);
     var chr = await svc.getCharacteristic(chrUuid);
-    btSelectChar({ svcUuid: svc.uuid, chrUuid: chr.uuid, char: chr }, true);
+    /* Si el servicio manual es ae30/af30 y están las tres características,
+       se arman los roles MXW01 en vez de elegir una sola para todo. */
+    var triple = (MXW_SERVICE_SHORTS.indexOf(mxwShort(svc.uuid)) !== -1) ? mxwDetect() : null;
+    if (triple && btState.protoMode !== "escpos"){ await btSetupMxw(triple); }
+    else btSelectChar({ svcUuid: svc.uuid, chrUuid: chr.uuid, char: chr }, true);
   } catch(e){
     btSetStatus("No se pudo usar ese UUID: " + btErrMsg(e) + " Si el servicio no estaba en la lista de búsqueda, desconectá, dejá los UUID pegados y volvé a conectar.", "err");
   }
@@ -2699,6 +2985,134 @@ function btBuildEscPos(src){
   push(0x1B, 0x64, 0x04);                             /* ESC d 4 — avanzar papel */
   return { bytes: new Uint8Array(out), width: TW, height: th };
 }
+/* Empaqueta el mismo lienzo térmico a 384 px en líneas crudas MXW01:
+   48 bytes por línea, LSB-first (el píxel izquierdo es el bit 0, negro = 1). */
+function mxwPackLines(src){
+  var TW = 384;
+  var th = Math.max(1, Math.round(src.height * TW / src.width));
+  var tc = document.createElement("canvas"); tc.width = TW; tc.height = th;
+  var tx = tc.getContext("2d");
+  tx.fillStyle = "#ffffff"; tx.fillRect(0, 0, TW, th);
+  tx.imageSmoothingEnabled = false;
+  tx.drawImage(src, 0, 0, TW, th);
+  var data = tx.getImageData(0, 0, TW, th).data;
+  var rowBytes = 48;
+  var out = new Uint8Array(rowBytes * th);
+  for (var y = 0; y < th; y++){
+    for (var x = 0; x < TW; x++){
+      var idx = (y * TW + x) * 4;
+      var lum = data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+      if (data[idx + 3] > 0 && lum < 128){
+        var bitPosition = x % 8;
+        var byteIndex = y * rowBytes + Math.floor(x / 8);
+        out[byteIndex] |= (1 << bitPosition);
+      }
+    }
+  }
+  return { data: out, lines: th, width: TW, height: th, rowBytes: rowBytes };
+}
+/* Flujo de impresión MXW01: intensidad y apertura por ae01, líneas por ae03,
+   flush por ae01, estado por ae01/ae02 y cierre por ae01. */
+async function mxwPrintFromCanvas(src, label){
+  var intensity = clamp(Math.round(btState.intensity), 0, 100);
+  btState.intensity = intensity;
+  var packed = mxwPackLines(src);
+  btState.lastLines = packed.lines;
+  btState.lastMode = "MXW01 monocromo (0x00)";
+  btState.dataBytesSent = 0; btState.cmdBytesSent = 0;
+  btState.responses = []; btState.lastStatus = {};
+  var totalBytes = packed.data.length + btState.cmdBytesSent;
+  btState.sending = true; btUpdateButtons(); btSetProgress(0);
+  try {
+    if (!btState.device || !btState.device.gatt || !btState.device.gatt.connected)
+      throw new Error("La impresora no está conectada. Conectala y reintentá.");
+    btSetStatus("MXW01: ajustando intensidad a " + intensity + "…", "working");
+    await mxwSendCommand(MXW_CMD.PRINT_INTENSITY, [intensity]);
+    btSetStatus("MXW01: abriendo el trabajo de " + packed.lines + " líneas…", "working");
+    await mxwSendCommand(MXW_CMD.PRINT, [packed.lines & 0xFF, (packed.lines >> 8) & 0xFF, 0x30, 0x00]);
+    for (var y = 0; y < packed.lines; y++){
+      if (!btState.device || !btState.device.gatt || !btState.device.gatt.connected)
+        throw new Error("La impresora se desconectó a mitad del envío (" + btState.dataBytesSent + " de " + packed.data.length + " bytes de datos enviados). Acercala, verificá que siga prendida y reintentá.");
+      var line = packed.data.slice(y * packed.rowBytes, (y + 1) * packed.rowBytes);
+      var dch = btState.dataChar;
+      if (dch.properties.writeWithoutResponse && typeof dch.writeValueWithoutResponse === "function") await dch.writeValueWithoutResponse(line);
+      else if (typeof dch.writeValueWithResponse === "function") await dch.writeValueWithResponse(line);
+      else await dch.writeValue(line);
+      btState.dataBytesSent += line.length;
+      if (y % 12 === 0 || y === packed.lines - 1){
+        btSetProgress(btState.dataBytesSent / packed.data.length);
+        btSetStatus("MXW01: enviando " + label + " — línea " + (y + 1) + " de " + packed.lines + " (" + btState.dataBytesSent + " bytes de datos)…", "working");
+      }
+      if (y + 1 < packed.lines) await btSleep(6);   /* pausa breve entre líneas */
+    }
+    totalBytes = packed.data.length + btState.cmdBytesSent;
+    btSetStatus("MXW01: cerrando el trabajo (flush)…", "working");
+    await mxwSendCommand(MXW_CMD.PRINT_FLUSH, [0x00]);
+    btSetStatus("MXW01: consultando el estado final…", "working");
+    var statusWait = mxwWaitResponse(MXW_CMD.GET_STATUS, 2000);
+    await mxwSendCommand(MXW_CMD.GET_STATUS, [0x00]);
+    var statusResp = await statusWait;
+    if (!statusResp) btState.responses.push({ cmd: MXW_CMD.GET_STATUS, cmdName: "GET_STATUS", hex: "(sin respuesta en 2 s — se sigue igual)" });
+    btSetStatus("MXW01: avisando el fin de la impresión…", "working");
+    var completeWait = mxwWaitResponse(MXW_CMD.PRINT_COMPLETE, 2000);
+    await mxwSendCommand(MXW_CMD.PRINT_COMPLETE, [0x00]);
+    var completeResp = await completeWait;
+    if (completeResp && completeResp.printCompleteOk === false)
+      throw new Error("La impresora respondió que el fin de impresión (PrintComplete) no tuvo éxito. Revisá papel y batería, y reintentá.");
+    if (!completeResp) btState.responses.push({ cmd: MXW_CMD.PRINT_COMPLETE, cmdName: "PRINT_COMPLETE", hex: "(sin respuesta en 2 s — se sigue igual)" });
+    totalBytes = packed.data.length + btState.cmdBytesSent;
+    await btSleep(600);
+    btState.sending = false; btSetProgress(null);
+    btSetStatus("Listo: " + label + " impreso por MXW01 (" + packed.lines + " líneas, " + btState.dataBytesSent + " bytes de datos por ae03 y " + btState.cmdBytesSent + " bytes de comandos por ae01). Revisá cómo salió en el papel.", "ok");
+    btWriteDiag(label, btState.dataBytesSent + btState.cmdBytesSent, totalBytes, "OK — impresión MXW01 completa" + (completeResp ? (completeResp.printCompleteOk ? " · PrintComplete con éxito" : "") : " · PrintComplete sin respuesta"));
+    btUpdateButtons();
+    return true;
+  } catch(e){
+    btState.sending = false; btSetProgress(null);
+    btSetStatus("Error imprimiendo " + label + " por MXW01: " + btErrMsg(e), "err");
+    btWriteDiag(label, btState.dataBytesSent + btState.cmdBytesSent, packed.data.length + btState.cmdBytesSent, "Error: " + btErrMsg(e), e);
+    btUpdateButtons();
+    return false;
+  }
+}
+/* Consulta de estado MXW01: GetStatus + GetVersion, con respuestas por ae02. */
+async function btQueryStatus(){
+  if (btState.effectiveProtocol !== "mxw01" || !btState.cmdChar){
+    btSetStatus("La consulta de estado es solo para el modo MXW01: esta impresora no quedó en modo MXW01 (quedó en ESC/POS o sin protocolo), y ESC/POS no tiene consulta de estado por esta vía. Si tu impresora es una MXW01, dejá el protocolo en «Auto» o elegí «MXW01 (22 21)» y volvé a conectar.", "err");
+    return;
+  }
+  if (btState.sending) return;
+  btState.attempts++;
+  btState.responses = []; btState.cmdBytesSent = 0; btState.dataBytesSent = 0;
+  btState.lastLines = 0; btState.lastMode = "Consulta de estado MXW01";
+  btState.sending = true; btUpdateButtons();
+  try {
+    btSetStatus("MXW01: consultando estado (batería y temperatura)…", "working");
+    var w1 = mxwWaitResponse(MXW_CMD.GET_STATUS, 2000);
+    await mxwSendCommand(MXW_CMD.GET_STATUS, [0x00]);
+    var r1 = await w1;
+    if (!r1) btState.responses.push({ cmd: MXW_CMD.GET_STATUS, cmdName: "GET_STATUS", hex: "(sin respuesta en 2 s)" });
+    btSetStatus("MXW01: consultando versión…", "working");
+    var w2 = mxwWaitResponse(MXW_CMD.GET_VERSION, 2000);
+    await mxwSendCommand(MXW_CMD.GET_VERSION, [0x00]);
+    var r2 = await w2;
+    if (!r2) btState.responses.push({ cmd: MXW_CMD.GET_VERSION, cmdName: "GET_VERSION", hex: "(sin respuesta en 2 s)" });
+    btState.sending = false;
+    mxwRenderPrinterInfo();
+    var s = btState.lastStatus, parts = [];
+    if (s.battery !== undefined) parts.push("batería " + s.battery + "%");
+    if (s.temperature !== undefined) parts.push("temperatura " + s.temperature + " °C");
+    if (s.version !== undefined) parts.push("versión " + (s.version || "—"));
+    btSetStatus(parts.length ? ("Estado MXW01: " + parts.join(" · ") + ". El detalle completo quedó en el diagnóstico.") : "La impresora no respondió la consulta de estado en 2 segundos. El intento quedó registrado en el diagnóstico.", parts.length ? "ok" : "err");
+    btWriteDiag("Consultar estado", btState.cmdBytesSent, btState.cmdBytesSent, parts.length ? ("OK — " + parts.join(" · ")) : "Sin respuesta de estado/versión en 2 s");
+    btUpdateButtons();
+  } catch(e){
+    btState.sending = false;
+    btSetStatus("Error consultando el estado MXW01: " + btErrMsg(e), "err");
+    btWriteDiag("Consultar estado", btState.cmdBytesSent, btState.cmdBytesSent, "Error: " + btErrMsg(e), e);
+    btUpdateButtons();
+  }
+}
 function btTestCanvas(){
   var cv = document.createElement("canvas"); cv.width = 384; cv.height = 96;
   var x = cv.getContext("2d");
@@ -2716,6 +3130,8 @@ async function btSendBytes(bytes, label){
   var ch = btState.writeChar;
   if (!ch){ btSetStatus("No hay característica de escritura elegida: conectá la impresora y elegí una.", "err"); return false; }
   var CHUNK = 180, sent = 0;
+  btState.lastMode = "ESC/POS raster GS v 0 · trozos de 180 bytes";
+  btState.lastLines = 0; btState.dataBytesSent = 0; btState.cmdBytesSent = 0; btState.responses = [];
   btState.sending = true; btUpdateButtons(); btSetProgress(0);
   try {
     for (var off = 0; off < bytes.length; off += CHUNK){
@@ -2750,6 +3166,13 @@ async function btSendBytes(bytes, label){
   }
 }
 async function btPrintTest(){
+  if (btState.effectiveProtocol === "mxw01"){
+    if (!btState.cmdChar || !btState.dataChar){ btSetStatus("Primero conectá la impresora MXW01 (faltan ae01/ae03).", "err"); return; }
+    btState.attempts++;
+    btSetStatus("Enviando la prueba pequeña por MXW01…", "working");
+    await mxwPrintFromCanvas(btTestCanvas(), "la prueba pequeña");
+    return;
+  }
   if (!btState.writeChar){ btSetStatus("Primero conectá la impresora y elegí la característica de escritura.", "err"); return; }
   btState.attempts++;
   var enc = btBuildEscPos(btTestCanvas());
@@ -2757,6 +3180,16 @@ async function btPrintTest(){
   await btSendBytes(enc.bytes, "la prueba pequeña");
 }
 async function btPrintCollar(){
+  if (!state.items.length && btState.effectiveProtocol === "mxw01"){ btSetStatus("El collar está vacío: agregá al menos una fotografía antes de imprimir.", "err"); return; }
+  if (btState.effectiveProtocol === "mxw01"){
+    if (!btState.cmdChar || !btState.dataChar){ btSetStatus("Primero conectá la impresora MXW01 (faltan ae01/ae03).", "err"); return; }
+    btState.attempts++;
+    if (!state.items.length){ btSetStatus("El collar está vacío: agregá al menos una fotografía antes de imprimir.", "err"); return; }
+    var srcM = composeCanvas("thermal");   /* exactamente el mismo canvas térmico que exporta el PNG */
+    btSetStatus("Enviando el collar por MXW01…", "working");
+    await mxwPrintFromCanvas(srcM, "el collar");
+    return;
+  }
   if (!btState.writeChar){ btSetStatus("Primero conectá la impresora y elegí la característica de escritura.", "err"); return; }
   btState.attempts++;
   if (!state.items.length){ btSetStatus("El collar está vacío: agregá al menos una fotografía antes de imprimir.", "err"); return; }
@@ -2788,7 +3221,21 @@ on("#btDisconnectBtn", "click", btDisconnect);
 on("#btManualBtn", "click", btUseManual);
 on("#btTestBtn", "click", btPrintTest);
 on("#btPrintBtn", "click", btPrintCollar);
+on("#btStatusBtn", "click", btQueryStatus);
 on("#btCopyBtn", "click", btCopyDiag);
+on("#btProtoSel", "change", function(e){
+  btState.protoMode = e.target.value;
+  if (btState.server && btState.chars.length){
+    btSetStatus("Aplicando el protocolo elegido…", "working");
+    btApplyProtocol();
+  } else {
+    btSetStatus("Protocolo elegido: " + (btState.protoMode === "mxw01" ? "MXW01 (22 21)" : (btState.protoMode === "escpos" ? "ESC/POS genérico" : "Auto")) + ". Se aplica al conectar la impresora.", "");
+  }
+});
+on("#btIntensity", "input", function(e){
+  btState.intensity = clamp(parseInt(e.target.value, 10) || 0, 0, 100);
+  var o = document.getElementById("btIntensityVal"); if (o) o.textContent = btState.intensity;
+});
 btRenderEnv();
 if (!btSupported()) btShowUnsupported(); else btUpdateButtons();
 
